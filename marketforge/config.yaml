@@ -1,0 +1,124 @@
+# ============================================
+# FORGE TRADING SYSTEM - MASTER CONFIGURATION
+# ============================================
+# INSTITUTIONAL-GRADE | ALL PARAMETERS CONFIGURABLE | NO HARDCODING
+
+# Assets to trade
+# Assets to trade (High Beta Only)
+# Assets to trade (High Beta Only)
+assets:
+  - SOLUSDT
+  - BTCUSDT
+  - ETHUSDT
+  - BNBUSDT
+  - PAXGUSDT # GOLD
+
+# Timeframes for multi-TF analysis
+timeframes:
+  - 5m
+  - 15m
+  - 30m
+  - 1h
+
+# Feature Engineering
+features:
+  ema_fast: 50            # Signal EMA (fast)
+  ema_slow: 200           # Signal EMA (slow)
+  trend_ema: 4800         # Filter EMA (approx Daily 200 on 1H)
+  rsi_period: 14
+  atr_period: 14
+  bb_period: 20
+  bb_std: 2
+
+# Signal Generation
+signals:
+  threshold: 30              # Single signal (EMA) only needs 30 weight
+  min_confirmations: 1       # EMA cross alone is enough
+  
+  # Individual signal weights (BULL MARKET TREND ONLY)
+  weights:
+    ema_cross: 50            # Classic trend
+    rsi_reversal: 0          # No distractions
+    bb_squeeze: 0            
+    divergence: 0            
+    volume_spike: 0          
+    vwap_trend: 50           # Institutional trend confirmation
+    ofi_momentum: 0
+
+# Conviction Layer (Gatekeeper)
+conviction:
+  enabled: false             # NO FILTERS
+
+# Drift Detection
+drift:
+  signal_freq_warn: 0.10      
+  signal_freq_critical: 0.25  
+  winrate_warn: 0.05          
+  winrate_critical: 0.10      
+  r_mult_warn: 0.5            
+
+# News Engine
+news:
+  refresh_sec: 1              
+  block_on_high_impact: false
+  sources:
+    - CoinDesk
+    - CoinTelegraph
+    - CryptoNews
+
+# Risk Management
+risk:
+  fee_rate: 0.001           
+  slippage_rate: 0.0005     
+  sl_atr_mult: 2.0          # WIDE Stop (Give room to breathe)
+  tp_atr_mult: 1.5          # MODERATE Target (Bank the bounce)
+  max_holding_bars: 24      # 24 hours max hold (don't marry bags)
+  max_trades_per_day: 10    
+  max_drawdown_pct: 20      
+  use_kelly: false          
+  kelly_fraction: 0.5       
+  max_position_size: 1.0
+
+# Walk-Forward Validation Periods
+walkforward:
+  train_start: "2021-01-01"
+  train_end: "2023-12-31"
+  validate_start: "2024-01-01"
+  validate_end: "2024-12-31"
+  test_start: "2025-01-01"
+  test_end: "2025-12-31"
+  forward_start: "2026-01-01"
+  forward_end: "2026-12-31"
+
+# Trading Sessions (UTC hours)
+sessions:
+  enabled: false          # Disabled for backtest
+  asia:
+    start: 0
+    end: 8
+  london:
+    start: 8
+    end: 16
+  newyork:
+    start: 13
+    end: 22
+
+# Supervisor (Self-Healing)
+supervisor:
+  enabled: true
+  restart_attempts: 3
+  health_check_interval: 10   # seconds
+
+# Web UI Settings
+ui:
+  price_update_ms: 200        # Price update frequency
+  clock_update_ms: 100        # Clock update frequency
+  news_update_s: 1            # News refresh interval
+
+# Operating Mode
+mode: live-monitor            # backtest | paper | live-monitor
+
+# Database
+database:
+  path: "trades.db"
+  wal_mode: true

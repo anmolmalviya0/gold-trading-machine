@@ -1,0 +1,183 @@
+# ==========================================
+# V4 PRO MAX ULTRA - CONFIG
+# ==========================================
+
+# Live Mode (WebSocket)
+ws:
+  enabled: true
+  binance_url: "wss://stream.binance.com:9443/stream"
+  reconnect_timeout: 5
+  symbols:
+    - "PAXGUSDT"
+    - "BTCUSDT"
+
+# Backtesting
+backtest:
+  fee_entry: 0.001        # 0.1% per side
+  fee_exit: 0.001
+  slippage_bps: 1.0       # 1 basis point
+  spread_penalty_bps: 0.5 # 0.5 bps for spread
+
+# Indicators (Institutional Grade)
+indicators:
+  rsi:
+    period: 14
+    method: "wilder"  # Wilder RMA
+  
+  atr:
+    period: 14
+    method: "wilder"
+  
+  ema:
+    fast: 50
+    slow: 200
+  
+  adx:
+    period: 14
+    threshold: 25  # regime filter
+  
+  bb:
+    period: 20
+    std: 2.0
+    use_for: "squeeze_filter"
+
+# Pivot Detection
+pivot:
+  left_bars: 5      # bars left of pivot
+  right_bars: 5     # bars right of pivot
+  min_height: 0.01  # 0.01% minimum to avoid noise
+
+# Divergence (Pivot-to-Pivot Confirmed)
+divergence:
+  lookback: 50
+  confirm_delay: 2  # candles after divergence to confirm
+  methods:
+    - "rsi_pivot"
+    - "price_action"
+
+# Liquidity Sweep Detection
+liquidity_sweep:
+  enabled: true
+  wick_beyond_pivot_pct: 0.995  # 0.5% beyond
+  close_back_inside_pct: 0.50   # close 50% back inside range
+
+# Signal Scoring (0-100)
+signal_scoring:
+  divergence_confirmed: 30
+  trend_alignment: 20
+  liquidity_sweep: 15
+  regime_good: 15
+  conviction_pass: 20
+  trade_threshold: 80
+
+# Conviction Gateways (Rejection Rules)
+conviction:
+  spread_filter:
+    BTC: 0.0004        # < 0.04%
+    ETH: 0.0004
+    PAXG: 0.0008       # < 0.08%
+    default: 0.0006
+  
+  depth_usd_min: 50000   # min $50k on each side
+  
+  slippage_impact_max: 0.001  # < 0.1%
+  
+  obi_usd:
+    buy_min: 0.80       # bid_usd / ask_usd
+    sell_max: 1.20      # bid_usd / ask_usd
+  
+  # Default: REJECT on missing data
+  require_all_gates: true
+
+# Risk Management
+risk:
+  # Win Rate Focus (65% attempt)
+  win_rate_mode:
+    tp_ratio: 1.4       # 1.4R
+    sl_ratio: 1.0       # 1.0R
+    time_stop_candles: 20
+  
+  # Expectancy Focus (Professional)
+  expectancy_mode:
+    tp_ratio: 2.0       # 2.0R
+    sl_ratio: 1.0       # 1.0R
+    time_stop_candles: 30
+  
+  mode: "win_rate_mode"  # choose one
+  
+  max_trades_daily: 5
+  max_drawdown_pct: 0.05  # 5% circuit breaker
+
+# Walk-Forward Validation
+walkforward:
+  train_window: 252     # ~1 year
+  validation_window: 63  # ~1 quarter
+  test_window: 63
+  step: 21              # 1 month step
+  
+  splits:
+    - name: "2021-2023"
+      train_start: "2021-01-01"
+      train_end: "2023-12-31"
+    - name: "2024"
+      validation_start: "2024-01-01"
+      validation_end: "2024-12-31"
+    - name: "2025"
+      test_start: "2025-01-01"
+      test_end: "2025-12-31"
+
+# Database & Persistence
+db:
+  path: "./data.db"
+  wal_enabled: true     # Write-Ahead Logging
+  checkpoint_interval: 1000
+
+# Alerts
+alerts:
+  telegram:
+    enabled: false
+    token: ""           # set in env
+    chat_id: ""         # set in env
+  
+  local_log: true
+  log_file: "./logs/signals.log"
+
+# Live Trading Params
+live:
+  mode: "paper"         # paper or live
+  order_type: "limit"   # limit (safer) or market
+  order_timeout: 60     # seconds to fill
+  
+  # Only execute trade card if score >= threshold
+  min_score: 80
+  
+  # Manual confirmation
+  require_manual_confirm: true
+
+# Candle Settings
+candles:
+  timeframes:
+    - "5m"
+    - "15m"
+    - "30m"
+    - "1h"
+  
+  # Decision timeframe (main signal)
+  decision_tf: "15m"
+  
+  # Confirmation timeframes
+  confirm_tfs: ["5m"]
+
+# Logging & Debug
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/app.log"
+
+# Watchdog & Safety
+watchdog:
+  enabled: true
+  heartbeat_interval: 60  # seconds
+  max_missing_candles: 3
+  alert_on_miss: true
+

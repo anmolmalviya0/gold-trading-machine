@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Data & outputs
+*.parquet
+*.csv
+*.db
+reports/
+logs/
+
+

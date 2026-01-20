@@ -1,0 +1,23 @@
+# DATA (never in git)
+market_data/
+marketforge/data/
+trading_intelligence/data/
+trading_intelligence/datasets/
+*.csv
+*.parquet
+*.db
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Data & outputs
+*.parquet
+*.csv
+*.db
+reports/
+logs/
+
+
