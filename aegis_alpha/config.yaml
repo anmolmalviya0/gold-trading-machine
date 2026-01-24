@@ -1,0 +1,99 @@
+# ============================================================
+# TERMINAL I - SYSTEM CONFIGURATION
+# ============================================================
+# Formerly: AEGIS V21
+# Last Updated: 2026-01-22
+# Purpose: Multi-Timeframe Analysis & Signal Ensemble
+# ============================================================
+
+system:
+  bot_name: "TERMINAL I"
+  version: "1.0.0 (Switchblade)"
+
+ui:
+  refresh_rate_ms: 500  # FASTER REFRESH
+
+# ACTIVE TIMEFRAMES
+# The system will analyze these timeframes in parallel
+active_timeframes:
+  - "5m"   # SCALPING (High Noise, High Opportunity)
+  - "15m"  # DEFAULT (Balanced - Primary Signal Source)
+  - "30m"  # CONFIRMATION (Medium-Term Trend)
+  - "1h"   # TREND (High Accuracy, Low Frequency)
+
+# SIGNAL LOGIC
+# Ensemble voting requires multiple timeframes to agree
+ensemble_voting: true  # Require 2+ timeframes to agree for STRONG signal
+min_timeframe_agreement: 2  # Minimum TFs that must align
+
+# ============================================================
+# TRADING MODE - TOTAL WAR (LONG + SHORT)
+# ============================================================
+trading:
+  mode: "futures"         # CRITICAL: Futures mode for shorts
+  leverage: 1             # Start with 1x - DO NOT INCREASE YET
+  allow_shorts: true      # THE PERMISSION TO KILL
+  paper_trading_mode: true # SAFETY LOCK: Default to TRUE
+  
+  # HYDRA PROTOCOL: Multi-Asset Configuration
+  active_pairs:
+    - "BTC/USDT"
+    - "ETH/USDT"
+    - "SOL/USDT"
+    #- "PAXG/USDT"
+    
+  # Specific model paths per asset (SWITCHBLADE PROTOCOL: LightGBM)
+  model_type: "lgbm"  # Model type selector: "lstm" or "lgbm"
+  model_paths:
+    "BTC/USDT": "models/BTC_lgbm.pkl"
+    "ETH/USDT": "models/ETH_lgbm.pkl"
+    "SOL/USDT": "models/SOL_lgbm.pkl"
+    "PAXG/USDT": "models/PAXG_lgbm.pkl"
+
+# CONFIDENCE THRESHOLDS (SYMMETRIC - TOTAL WAR MODE)
+confidence:
+  # LONG (BUY) THRESHOLDS
+  buy_threshold: 0.60     # High probability of price increase
+  strong_buy: 0.75        # Very high conviction long
+  
+  # SHORT (SELL) THRESHOLDS  
+  sell_threshold: 0.30    # Low prob of increase = High prob of decrease
+  strong_sell: 0.20       # Very high conviction short
+  
+  # NEUTRAL ZONE
+  neutral_low: 0.35       # Below this = SHORT territory
+  neutral_high: 0.55      # Above this = LONG territory
+
+# RISK MANAGEMENT (HARD DECK - DO NOT MODIFY)
+risk:
+  max_per_trade: 0.03   # 3% max risk per trade
+  stop_loss_atr: 1.5    # Stop loss at -1.5 ATR
+  take_profit_atr: 2.0  # Take profit at +2.0 ATR
+
+# DATA SOURCES
+data:
+  primary: "binance"    # Live price feed
+  fallback: "yfinance"  # Backup for OHLCV
+  cache_ttl: 500        # 500ms cache for WebSocket
+
+# ASSETS
+assets:
+  crypto:
+    - "BTC"
+    - "ETH"
+    - "SOL"
+    - "BNB"
+  commodities:
+    - "PAXG"  # Tokenized Gold
+
+# RECALIBRATION
+recalibration:
+  window: 100           # Last 100 candles for feature normalization
+  auto_recalibrate: true
+  interval_hours: 4     # Recalibrate every 4 hours
+
+# LOGGING
+logging:
+  level: "INFO"
+  file: "logs/aegis.log"
+  rotate_mb: 10
