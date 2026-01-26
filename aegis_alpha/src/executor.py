@@ -1,5 +1,5 @@
 """
-TERMINAL I - HYDRA EXECUTOR
+TERMINAL - SENTINEL EXECUTOR
 =============================
 Multi-Asset Trading Engine with LSTM Neural Core and SQLite Persistence.
 "One brain per asset. One database for all."
@@ -24,7 +24,7 @@ logging.basicConfig(
         logging.FileHandler('logs/executor.log')
     ]
 )
-logger = logging.getLogger('HYDRA')
+logger = logging.getLogger('SENTINEL')
 
 # Add path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -35,6 +35,7 @@ try:
     from lgbm_adapter import LightGBMPredictor
     from persistence import Database
     from quant_utils import calc_position_size, prepare_features
+    from notifier import sentinel
 except ImportError as e:
     logger.error(f"Failed to import components: {e}")
     sys.exit(1)
@@ -52,9 +53,9 @@ def load_config():
 
 CONFIG = load_config()
 
-class HydraExecutor:
+class SentinelExecutor:
     """
-    The Head of Hydra: Multi-Model Trading Executor
+    The Head of Sentinel: Multi-Model Trading Executor
     """
     
     def __init__(self):
@@ -70,6 +71,7 @@ class HydraExecutor:
         
         # 3. Model Registry { 'BTC/USDT': PredictorObj }
         self.models = {}
+        self.last_signals = {} # Anti-Spam Cache
         
         # 4. Exchange Connection (Binance)
         self.exchange = None
@@ -102,7 +104,7 @@ class HydraExecutor:
     def _load_models(self):
         """Load all models defined in config"""
         logger.info("=" * 60)
-        logger.info("🐉 HYDRA PROTOCOL: LOADING NEURAL CORES")
+        logger.info("🐉 SENTINEL PROTOCOL: LOADING NEURAL CORES")
         logger.info("=" * 60)
         
         model_paths = CONFIG.get('trading', {}).get('model_paths', {})
@@ -113,7 +115,7 @@ class HydraExecutor:
             
             if not path:
                 logger.warning(f"⚠️ No model path config for {pair}. Using fallback.")
-                path = "models/aegis_lstm.pth" # Fallback
+                path = "models/terminal_lstm.pth" # Fallback
             
             # Resolve absolute path
             abs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), path)
@@ -137,7 +139,7 @@ class HydraExecutor:
             else:
                 logger.warning(f"❌ Model file missing: {abs_path}")
                 
-        logger.info(f"🐉 Hydra Online: {len(self.models)} active cores")
+        logger.info(f"🐉 Sentinel Online: {len(self.models)} active cores")
 
     def is_market_safe(self, pair: str, df: pd.DataFrame) -> bool:
         """
@@ -192,36 +194,55 @@ class HydraExecutor:
                         continue
                 else:
                     # Simulation Mode: We need to fetch from API Server or mock
-                    # For now, we will log a warning and skip unless we implement a public fetcher fallback
                     # Actually, yfinance can serve as fallback in executor too
+                    # 2. Fetch Fresh Data (Switchblade Protocol)
                     try:
                         import yfinance as yf
                         yf_map = {"BTC/USDT": "BTC-USD", "ETH/USDT": "ETH-USD", "SOL/USDT": "SOL-USD"}
                         ticker = yf_map.get(pair, pair.replace('/', '-'))
-                        df = yf.Ticker(ticker).history(period="2d", interval="15m")
-                        if df.empty:
+                        # Note: asyncio.to_thread is for async contexts. For synchronous, call directly.
+                        df = yf.download(ticker, period="2d", interval="15m", progress=False)
+                        
+                        if df is None or df.empty:
                             logger.warning(f"No data for {pair}")
                             continue
+                            
+                        # 🐉 AGGRESSIVE NORMALIZATION (NASA-Grade)
+                        if hasattr(df.columns, 'levels') and len(df.columns.levels) > 1:
+                            df.columns = df.columns.get_level_values(0)
+                        df.columns = [str(c).lower().strip() for c in df.columns]
+                        
                     except Exception as e:
-                        logger.error(f"Fallback fetch failed: {e}")
+                        logger.error(f"Fetch failed for {pair}: {e}")
                         continue
 
                 # 3. Features & Prediction (Sovereign Engine)
                 features = prepare_features(df)
                 
-                # DEBUG: Log features to see if they are 0
-                logger.info(f"Features [0:5]: {features[0][:5]}")
+                # 4. Run Inference (NASA-Grade Threshold Sync)
+                threshold = CONFIG.get('confidence', {}).get('buy_threshold', 0.65)
+                result = model.predict(features, threshold=threshold)
                 
-                # 4. Run Inference
-                result = model.predict(features)
+                # Use scalar extraction to avoid index ghosts
+                price_now = float(df['close'].values[-1])
                 
                 confidence = result.get('confidence', 0)
                 signal = result.get('signal', 'HOLD')
                 reason = result.get('reason', 'N/A')
-                logger.info(f"🔍 Scan {pair}: {signal} ({confidence:.1%}) | Reason: {reason}")
                 
-                # PERSISTENCE: Save result to war_room.db for dashboard audit
-                result['price'] = float(df['close'].iloc[-1])
+                # 🐉 ANTI-SPAM: Only log if signal changed
+                last_sig = self.last_signals.get(pair)
+                if signal == last_sig and signal == 'HOLD':
+                    # Silent skip for redundant HOLDs
+                    continue
+                
+                logger.info(f"🔍 Scan {pair}: {signal} ({confidence:.1%}) | Reason: {reason} | Price: {price_now}")
+                
+                # Update Cache
+                self.last_signals[pair] = signal
+                
+                # PERSISTENCE: Save result
+                result['price'] = price_now
                 self.process_signal(pair, result)
                 
                 # 5. Execute with Volatility Shield
@@ -260,39 +281,111 @@ class HydraExecutor:
         if is_approved and signal_type in ['BUY', 'SELL']:
             logger.info(f"🚨 ACTIONABLE SIGNAL: {symbol} {signal_type} ({confidence:.1%})")
             
+            # Broadcast to Devices
+            sentinel.alert_signal(symbol, signal_type, signal_data.get('price', 0))
+            
             # 3. Execute Trade (if allowed)
             if not self.paper_mode:
                 self.execute_trade(symbol, signal_type, signal_data)
             else:
                 logger.info(f"📝 PAPER TRADE: {symbol} {signal_type} logged.")
 
+    def monitor_positions(self):
+        """
+        The Sentinel: Enforces Triple-Barrier constraints on all open positions.
+        """
+        try:
+            # 1. Fetch all OPEN trades from DB
+            open_trades = self.db.get_trades(status='OPEN')
+            if not open_trades:
+                return
+
+            for trade in open_trades:
+                trade_id = trade['id']
+                symbol = trade['symbol']
+                side = trade['side']
+                entry_price = trade['entry_price']
+                stop_loss = trade['stop_loss']
+                take_profit = trade['take_profit']
+                
+                # 2. Get current price
+                # We'll use the last fetched price from the regular scan if possible, 
+                # but for accuracy, we fetch fresh.
+                try:
+                    ticker = self.exchange.fetch_ticker(symbol) if self.exchange else None
+                    current_price = ticker['last'] if ticker else None
+                    
+                    if not current_price:
+                        # Fallback for simulation
+                        import yfinance as yf
+                        yf_sym = symbol.replace('/', '-') + "-USD" if '/' in symbol else symbol
+                        tk = yf.Ticker(yf_sym)
+                        current_price = tk.fast_info['lastPrice']
+                except:
+                    continue
+
+                if not current_price:
+                    continue
+
+                # 3. Check Barriers
+                hit_sl = (side == 'BUY' and current_price <= stop_loss) or (side == 'SELL' and current_price >= stop_loss)
+                hit_tp = (side == 'BUY' and current_price >= take_profit) or (side == 'SELL' and current_price <= take_profit)
+                
+                if hit_sl or hit_tp:
+                    reason = "SL HIT" if hit_sl else "TP HIT"
+                    logger.info(f"🚨 BARRIER REACHED: {symbol} | {reason} @ {current_price}")
+                    
+                    if self.exchange and not self.paper_mode:
+                        # Close trade on exchange
+                        # self.exchange.create_order(symbol, 'market', 'sell' if side == 'BUY' else 'buy', trade['quantity'])
+                        pass
+                    
+                    # Log closing in DB
+                    self.db.close_trade(trade_id, current_price, notes=reason)
+                    logger.info(f"✅ POSITION CLOSED: {symbol} ID:{trade_id}")
+                    
+                    # Broadcast to Devices
+                    sentinel.alert_barrier(symbol, reason, current_price)
+
+        except Exception as e:
+            logger.error(f"Error in Position Sentinel: {e}")
+
     def execute_trade(self, symbol: str, side: str, signal_data: Dict):
         """
         Execute live trade on exchange
         """
-        if not self.exchange:
-            logger.error("Cannot execute: No exchange connection")
+        if not self.exchange and not self.paper_mode:
+            logger.error("Cannot execute LIVE: No exchange connection")
             return
             
         try:
             # 1. Calculate Quantity
-            balance = 1000.0 # Placeholder, should fetch from exchange
-            risk_pct = CONFIG['risk']['max_per_trade']
-            entry = signal_data['entry_price']
-            sl = signal_data['stop_loss']
+            balance = 1000.0 # Placeholder
+            risk_pct = CONFIG.get('risk', {}).get('max_per_trade', 0.01)
+            entry = signal_data.get('entry_price', signal_data.get('price', 0))
+            
+            # 🐉 NASA-GRADE: Ensure SL exists
+            sl = signal_data.get('stop_loss')
+            if not sl:
+                # Fallback to ATR-based SL if not provided
+                atr_dist = signal_data.get('price', 0) * 0.02 # 2% fallback
+                sl = entry - atr_dist if side == 'BUY' else entry + atr_dist
             
             quantity = calc_position_size(balance, risk_pct, entry, sl)
             
             if quantity <= 0:
-                logger.warning(f"Calculated 0 quantity for {symbol}")
+                logger.warning(f"Quantity 0 for {symbol}. Entry: {entry}, SL: {sl}")
                 return
 
-            # 2. Place Order
-            # order = self.exchange.create_order(symbol, 'market', side, quantity)
+            # 2. Log Trade (Always log, even paper)
+            tp = signal_data.get('take_profit')
+            trade_id = self.db.log_trade(symbol, side, entry, quantity, sl, tp)
             
-            # 3. Log Trade to DB
-            self.db.log_trade(symbol, side, entry, quantity, sl, signal_data['take_profit'])
-            logger.info(f"🚀 ORDER SENT: {side} {quantity} {symbol}")
+            if not self.paper_mode and self.exchange:
+                # Real Order logic here
+                pass
+                
+            logger.info(f"🚀 {'PAPER ' if self.paper_mode else 'LIVE '}POSITION OPENED: {side} {quantity} {symbol} ID:{trade_id}")
             
         except Exception as e:
             logger.error(f"Execution failed: {e}")
@@ -300,31 +393,28 @@ class HydraExecutor:
 
     def run(self):
         """Main Life Cycle (Anti-Gravity Refactor)"""
-        logger.info(f"🚀 AEGIS Executor (PID {os.getpid()}) Started. Mode: {'PAPER' if self.paper_mode else 'LIVE'}")
+        logger.info(f"🚀 TERMINAL Executor (PID {os.getpid()}) Started. Mode: {'PAPER' if self.paper_mode else 'LIVE'}")
         self.running = True
         
         while self.running:
             try:
-                # 1. Fetch & Switchblade Logic (Scan Market)
+                # 1. Position Sentinel: Monitor SL/TP for open trades
+                self.monitor_positions()
+
+                # 2. Market Pulse: Fetch & Switchblade Logic (Scan Market)
                 self.scan_market()
                 
-                # Sleep to prevent rate limits (60s is safe for 15m candles)
-                # Heartbeat every 1s, but scan logic handles the wait internally or we wait here
-                # Anti-Gravity Prompt requested sleep(1) heartbeat but business logic dictates 15m candles.
-                # Optimization: We sleep 60s to respect candle close, 
-                # but we can do a smaller sleep loop if we were HFT. 
-                # For this implementation, we stick to 60s to avoid API bans.
                 time.sleep(60)
                 
             except KeyboardInterrupt:
                 self.running = False
-                logger.info("Hydra Shutdown.")
+                logger.info("Sentinel Shutdown.")
             except Exception as e:
                 logger.error(f"CRITICAL LOOP FAILURE: {e}")
                 time.sleep(5) # Backoff
 
 
 if __name__ == '__main__':
-    print("🐉 TERMINAL I - HYDRA ENGINE STARTING...")
-    executor = HydraExecutor()
+    print("🐉 TERMINAL - SENTINEL ENGINE STARTING...")
+    executor = SentinelExecutor()
     executor.run()

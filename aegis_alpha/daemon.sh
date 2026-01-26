@@ -1,16 +1,16 @@
 #!/bin/bash
 #
-# AEGIS V21 - Daemon Control Script
-# ==================================
+# TERMINAL - Daemon Control Script
+# ==============================
 # Manages 24/7 trading bot operation
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AEGIS_HOME="$SCRIPT_DIR"
-PID_FILE="$AEGIS_HOME/aegis.pid"
-LOG_FILE="$AEGIS_HOME/logs/aegis.log"
-ERROR_LOG="$AEGIS_HOME/logs/aegis_error.log"
-PLIST_NAME="com.aegis.trading"
+PID_FILE="$AEGIS_HOME/terminal.pid"
+LOG_FILE="$AEGIS_HOME/logs/terminal.log"
+ERROR_LOG="$AEGIS_HOME/logs/terminal_error.log"
+PLIST_NAME="com.terminal.trading"
 PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
 
 # Ensure log directory exists
@@ -26,7 +26,7 @@ NC='\033[0m' # No Color
 print_banner() {
     echo ""
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}          ${GREEN}AEGIS V21 - DAEMON CONTROLLER${NC}                  ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}          ${GREEN}TERMINAL - DAEMON CONTROLLER${NC}                  ${BLUE}║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -48,7 +48,7 @@ start() {
     echo "🦅 IGNITION SEQUENCE..."
     
     if is_running; then
-        echo -e "${YELLOW}⚠️  AEGIS is already running (PID: $(cat $PID_FILE))${NC}"
+        echo -e "${YELLOW}⚠️  TERMINAL is already running (PID: $(cat $PID_FILE))${NC}"
         return 1
     fi
     
@@ -63,7 +63,7 @@ start() {
         echo -e "${YELLOW}⚠️  WARNING: .env Vault not found.${NC}"
     fi
 
-    echo -e "${BLUE}🚀 Starting AEGIS Trading Bot...${NC}"
+    echo -e "${BLUE}🚀 Starting TERMINAL Trading Bot...${NC}"
     
     # 2. RUNTIME: Auto-detect Python
     if [ -d "$AEGIS_HOME/venv" ]; then
@@ -84,7 +84,7 @@ start() {
     EXEC_PID=$!
     
     # Start Dashboard
-    echo -e "   Starting Dashboard (Terminal I)..."
+    echo -e "   Starting Dashboard (TERMINAL)..."
     cd "$AEGIS_HOME/aegis-ui"
     # Detect if npm is present (Server might use pm2 or direct node)
     if command -v npm &> /dev/null; then
@@ -104,11 +104,11 @@ start() {
     sleep 2
     
     if is_running; then
-        echo -e "${GREEN}✅ AEGIS LIVE. PID: $(cat $PID_FILE)${NC}"
+        echo -e "${GREEN}✅ TERMINAL LIVE. PID: $(cat $PID_FILE)${NC}"
         echo -e "   API PID:      $API_PID"
         echo -e "   Logs: $LOG_FILE"
     else
-        echo -e "${RED}❌ Failed to start AEGIS${NC}"
+        echo -e "${RED}❌ Failed to start TERMINAL${NC}"
         echo -e "   Check: $ERROR_LOG"
         return 1
     fi
@@ -119,14 +119,14 @@ stop() {
     print_banner
     
     if ! is_running; then
-        echo -e "${YELLOW}⚠️  AEGIS is not running${NC}"
+        echo -e "${YELLOW}⚠️  TERMINAL is not running${NC}"
         rm -f "$PID_FILE"
         rm -f "$AEGIS_HOME/api.pid"
         return 0
     fi
     
     PID=$(cat "$PID_FILE")
-    echo -e "${BLUE}🛑 Stopping AEGIS (PID: $PID)...${NC}"
+    echo -e "${BLUE}🛑 Stopping TERMINAL (PID: $PID)...${NC}"
     
     kill "$PID" 2>/dev/null
     
@@ -150,6 +150,10 @@ stop() {
     # Force kill any rogue api_server processes
     pkill -f "src/api_server.py"
     
+    # 🐉 SCORCHED EARTH: Clear Ports explicitly
+    echo -e "   Clearing Port 8000 & 3000..."
+    lsof -ti:8000,3000 | xargs kill -9 2>/dev/null
+    
     # Wait for graceful shutdown
     for i in {1..5}; do
         if ! is_running; then
@@ -164,7 +168,7 @@ stop() {
     fi
     
     rm -f "$PID_FILE"
-    echo -e "${GREEN}✅ AEGIS stopped${NC}"
+    echo -e "${GREEN}✅ TERMINAL stopped${NC}"
 }
 
 # Restart
@@ -201,7 +205,7 @@ status() {
     
     if is_running; then
         PID=$(cat "$PID_FILE")
-        echo -e "${GREEN}✅ AEGIS is RUNNING${NC}"
+        echo -e "${GREEN}✅ TERMINAL is RUNNING${NC}"
         echo -e "   PID: $PID"
         echo -e "   Uptime: $(ps -o etime= -p $PID 2>/dev/null || echo 'unknown')"
         
@@ -210,7 +214,7 @@ status() {
         echo -e "${BLUE}📋 Recent Activity:${NC}"
         tail -5 "$LOG_FILE" 2>/dev/null || echo "   No logs available"
     else
-        echo -e "${RED}❌ AEGIS is STOPPED${NC}"
+        echo -e "${RED}❌ TERMINAL is STOPPED${NC}"
     fi
 }
 
@@ -235,7 +239,7 @@ errors() {
 # Install as LaunchAgent (macOS)
 install() {
     print_banner
-    echo -e "${BLUE}📦 Installing AEGIS as LaunchAgent...${NC}"
+    echo -e "${BLUE}📦 Installing TERMINAL as LaunchAgent...${NC}"
     
     # Create LaunchAgent plist
     cat > "$PLIST_PATH" << EOF
@@ -269,13 +273,13 @@ EOF
     
     echo -e "${GREEN}✅ Installed as LaunchAgent${NC}"
     echo -e "   Plist: $PLIST_PATH"
-    echo -e "   AEGIS will start automatically on login"
+    echo -e "   TERMINAL will start automatically on login"
 }
 
 # Uninstall LaunchAgent
 uninstall() {
     print_banner
-    echo -e "${BLUE}🗑️  Uninstalling AEGIS LaunchAgent...${NC}"
+    echo -e "${BLUE}🗑️  Uninstalling TERMINAL LaunchAgent...${NC}"
     
     launchctl unload "$PLIST_PATH" 2>/dev/null
     rm -f "$PLIST_PATH"
@@ -288,7 +292,7 @@ uninstall() {
 # Health check
 health() {
     print_banner
-    echo -e "${BLUE}🏥 AEGIS Health Check${NC}"
+    echo -e "${BLUE}🏥 TERMINAL Health Check${NC}"
     echo ""
     
     # Check Python

@@ -1,5 +1,5 @@
 """
-AEGIS V21 - LightGBM Backtest Adapter
+TERMINAL - LightGBM Backtest Adapter
 ======================================
 Adapts backtest_engine.py to work with LightGBM model.
 """
@@ -12,7 +12,7 @@ import os
 class LightGBMPredictor:
     """Wrapper to make LightGBM compatible with backtest engine"""
     
-    def __init__(self, model_path: str = '/Users/anmol/Desktop/gold/aegis_alpha/models/aegis_lgbm.pkl'):
+    def __init__(self, model_path: str = '/Users/anmol/Desktop/gold/terminal_alpha/models/terminal_lgbm.pkl'):
         self.model = joblib.load(model_path)
         self.model_path = model_path
         print(f"✅ LightGBM Model loaded from {model_path}")
@@ -58,13 +58,13 @@ if __name__ == '__main__':
     
     print("""
     ╔══════════════════════════════════════════════════════════╗
-    ║          AEGIS V21 - LIGHTGBM BACKTEST                   ║
+    ║          TERMINAL - LIGHTGBM BACKTEST                   ║
     ║              The Great Filter Validation                 ║\n    ╚══════════════════════════════════════════════════════════╝
     """)
     
     # Create engine with LightGBM predictor
     engine = BacktestEngine(
-        model_path='/Users/anmol/Desktop/gold/aegis_alpha/models/aegis_lgbm.pkl',
+        model_path='/Users/anmol/Desktop/gold/terminal_alpha/models/terminal_lgbm.pkl',
         initial_capital=10000,
         risk_per_trade=0.02
     )

@@ -1,0 +1,81 @@
+# 🐉 TERMINAL: SCORCHED EARTH SECURITY
+# ==================================
+# Unbreachable file exclusion protocol.
+
+# Environment Vault (CORE SECURITY)
+.env
+.env.*
+!.env.example
+*.env
+
+# Python Infrastructure
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env/
+bin/
+include/
+lib/
+ENV/
+
+# Neural Cores (Models)
+models/*.pth
+models/*.pkl
+models/*.joblib
+models/*.h5
+models/*.json
+
+# Data & Pulse Logs
+logs/*.log
+logs/*.txt
+logs/terminal*
+data/*.csv
+data/*.parquet
+data/*.h5
+nohup.out
+
+# PIDs & Locks (Operational)
+*.pid
+.ignition_time
+logs/.ignition_time
+
+# Dashboard & JS
+node_modules/
+.next/
+out/
+build/
+.DS_Store
+*.local
+
+# System & OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

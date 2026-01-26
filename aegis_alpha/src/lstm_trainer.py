@@ -1,5 +1,5 @@
 """
-AEGIS V21 - LSTM Training Pipeline
+TERMINAL - LSTM Training Pipeline
 ===================================
 Converts historical market data into predictive tensors.
 Walk-forward validation to prevent overfitting.
@@ -19,7 +19,7 @@ from torch.utils.data import Dataset, DataLoader
 
 # Add parent to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lstm_model import AegisLSTM
+from lstm_model import TerminalLSTM
 
 
 class MarketDataset(Dataset):
@@ -54,7 +54,7 @@ class LSTMTrainer:
     def __init__(
         self,
         data_dir: str = '../market_data',
-        model_dir: str = '../aegis_alpha/models',
+        model_dir: str = '../terminal_alpha/models',
         seq_len: int = 60,
         batch_size: int = 64,
         learning_rate: float = 0.00001,  # Lowered from 0.001 for stability
@@ -372,7 +372,7 @@ class LSTMTrainer:
             Training metrics
         """
         print("\n" + "="*60)
-        print("🚀 AEGIS V21 LSTM TRAINING PIPELINE")
+        print("🚀 TERMINAL LSTM TRAINING PIPELINE")
         print("="*60)
         print(f"⏰ Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"🔧 Device: {self.device}")
@@ -408,7 +408,7 @@ class LSTMTrainer:
         
         # Initialize model
         input_size = features.shape[1]
-        self.model = AegisLSTM(
+        self.model = TerminalLSTM(
             input_size=input_size,
             hidden_size=128,
             num_layers=2,
@@ -514,7 +514,7 @@ class LSTMTrainer:
         print(f"⏱️ Training time: {elapsed/60:.1f} minutes")
         print(f"📉 Best validation loss: {best_val_loss:.4f}")
         print(f"🎯 Final validation accuracy: {history['val_accuracy'][-1]:.2%}")
-        print(f"💾 Model saved to: {self.model_dir}/aegis_lstm.pth")
+        print(f"💾 Model saved to: {self.model_dir}/terminal_lstm.pth")
         
         return {
             'best_val_loss': best_val_loss,
@@ -525,7 +525,7 @@ class LSTMTrainer:
     
     def _save_model(self, accuracy: float, loss: float, epoch: int):
         """Save model checkpoint"""
-        save_path = os.path.join(self.model_dir, 'aegis_lstm.pth')
+        save_path = os.path.join(self.model_dir, 'terminal_lstm.pth')
         
         torch.save({
             'epoch': epoch,
@@ -545,7 +545,7 @@ import argparse
 if __name__ == '__main__':
     print("""
     ╔══════════════════════════════════════════════════════════╗
-    ║          AEGIS V21 - LSTM NEURAL NETWORK TRAINER         ║
+    ║          TERMINAL - LSTM NEURAL NETWORK TRAINER         ║
     ║              The Brain Initialization Protocol           ║
     ══════════════════════════════════════════════════════════╝
     """)
@@ -553,7 +553,7 @@ if __name__ == '__main__':
     # Parse Arguments
     parser = argparse.ArgumentParser(description='Train LSTM Model for Specific Asset')
     parser.add_argument('--symbol', type=str, default='PAXG', help='Asset symbol to train on (e.g., BTCUSDT)')
-    parser.add_argument('--output', type=str, default='models/aegis_lstm.pth', help='Path to save .pth model')
+    parser.add_argument('--output', type=str, default='models/terminal_lstm.pth', help='Path to save .pth model')
     parser.add_argument('--epochs', type=int, default=50, help='Number of training epochs')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
     parser.add_argument('--csv_path', type=str, default=None, help='Direct path to CSV file (overrides yfinance)')
@@ -591,7 +591,7 @@ if __name__ == '__main__':
             
         def _save_model(self, accuracy: float, loss: float, epoch: int):
             """Override save to use custom output path"""
-            # save_path = os.path.join(self.model_dir, 'aegis_lstm.pth') 
+            # save_path = os.path.join(self.model_dir, 'terminal_lstm.pth') 
             # We ignore self.model_dir because we have full path in target_output
             
             torch.save({
@@ -672,7 +672,7 @@ if __name__ == '__main__':
     # Define the root directory (script is in /src/, go up one level)
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATA_DIR = os.path.join(BASE_DIR, '..', 'market_data')  # ../market_data
-    MODELS_DIR = os.path.join(BASE_DIR, 'models')  # aegis_alpha/models
+    MODELS_DIR = os.path.join(BASE_DIR, 'models')  # terminal_alpha/models
     
     # Initialize targeted trainer
     trainer = TargetedLSTMTrainer(

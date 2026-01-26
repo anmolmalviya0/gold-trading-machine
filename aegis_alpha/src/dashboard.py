@@ -1,5 +1,5 @@
 """
-AEGIS V21 - COMMAND CENTER (DASHBOARD)
+TERMINAL - COMMAND CENTER (DASHBOARD)
 =======================================
 Real-time terminal dashboard for monitoring the bot.
 Run with: python3 src/dashboard.py
@@ -45,7 +45,7 @@ def main():
     CONFIDENCE = 0.65
     RISK_LIMIT = "3.0%"
     
-    print("Launching AEGIS Command Center...")
+    print("Launching TERMINAL Command Center...")
     time.sleep(1)
     
     while True:
@@ -56,7 +56,7 @@ def main():
             
             clear_screen()
             print(f"╔══════════════════════════════════════════════════════════════════════════╗")
-            print(f"║                   🦅 AEGIS V21 COMMAND CENTER                            ║")
+            print(f"║                   🦅 TERMINAL COMMAND CENTER                            ║")
             print(f"╠══════════════════════════════════════════════════════════════════════════╣")
             print(f"║  TIME:   {now:<54}  ║")
             print(f"║  STATUS: {status:<10} (PID: {pid:<7})                                 ║")

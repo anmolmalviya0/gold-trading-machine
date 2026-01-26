@@ -1,13 +1,8 @@
-# ============================================================
-# TERMINAL I - SYSTEM CONFIGURATION
-# ============================================================
-# Formerly: AEGIS V21
-# Last Updated: 2026-01-22
 # Purpose: Multi-Timeframe Analysis & Signal Ensemble
 # ============================================================
 
 system:
-  bot_name: "TERMINAL I"
+  bot_name: "TERMINAL"
   version: "1.0.0 (Switchblade)"
 
 ui:

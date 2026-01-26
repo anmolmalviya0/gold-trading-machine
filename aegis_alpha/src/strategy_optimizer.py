@@ -1,5 +1,5 @@
 """
-AEGIS V21 - IRONCLAD Strategy Optimizer V2
+TERMINAL - IRONCLAD Strategy Optimizer V2
 ===========================================
 CRITICAL FIX: Model outputs max confidence ~0.46
 Previous thresholds (0.60-0.80) were TOO HIGH - no trades generated.
@@ -18,7 +18,7 @@ from src.backtest_engine import BacktestEngine
 def run_ironclad_optimization():
     print("""
     ╔══════════════════════════════════════════════════════════╗
-    ║          AEGIS V21 - NEGATIVE ALPHA TEST                 ║
+    ║          TERMINAL - NEGATIVE ALPHA TEST                 ║
     ║        INVERTED LOGIC: BUY Signal → SHORT Trade          ║
     ╚══════════════════════════════════════════════════════════╝
     """)
@@ -42,7 +42,7 @@ def run_ironclad_optimization():
         try:
             # Initialize Engine with custom model path
             engine = BacktestEngine(
-                model_path='/Users/anmol/Desktop/gold/aegis_alpha/models/aegis_lstm.pth',
+                model_path='/Users/anmol/Desktop/gold/terminal_alpha/models/terminal_lstm.pth',
                 initial_capital=10000,
                 risk_per_trade=0.02
             )
@@ -217,7 +217,7 @@ def run_ironclad_optimization():
         
         # AUTO-SAVE after each iteration
         if results:
-            pd.DataFrame(results).to_csv('/Users/anmol/Desktop/gold/aegis_alpha/logs/negative_alpha_results.csv', index=False)
+            pd.DataFrame(results).to_csv('/Users/anmol/Desktop/gold/terminal_alpha/logs/negative_alpha_results.csv', index=False)
 
     # 3. FINAL REPORT
     print("\n" + "=" * 60)

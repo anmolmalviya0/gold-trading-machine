@@ -1,6 +1,7 @@
 """
-TERMINAL I - FORENSIC BACKTEST VALIDATOR
-==========================================
+TERMINAL - FORENSIC BACKTEST ENGINE
+=====================================
+=====
 Comprehensive audit of model performance.
 This is THE definitive test.
 """
@@ -11,7 +12,7 @@ import os
 from datetime import datetime
 
 # Configuration
-MODEL_PATH = '/Users/anmol/Desktop/gold/aegis_alpha/models/aegis_lgbm.pkl'
+MODEL_PATH = '/Users/anmol/Desktop/gold/terminal_alpha/models/terminal_lgbm.pkl'
 DATA_PATH = '/Users/anmol/Desktop/gold/market_data/PAXGUSDT_5m.csv'
 INITIAL_CAPITAL = 10000
 RISK_PER_TRADE = 0.02  # 2% per trade
@@ -19,7 +20,7 @@ CONFIDENCE_THRESHOLD = 0.55  # As per config.yaml
 
 print("""
 ╔══════════════════════════════════════════════════════════╗
-║     TERMINAL I - FORENSIC BACKTEST VALIDATOR             ║
+║     TERMINAL - FORENSIC BACKTEST VALIDATOR             ║
 ║        The Truth About The Model                         ║
 ╚══════════════════════════════════════════════════════════╝
 """)
@@ -251,7 +252,7 @@ else:
     
     print(f"""
 ============================================================
-📊 TERMINAL I - FORENSIC BACKTEST REPORT
+📊 TERMINAL - FORENSIC BACKTEST REPORT
 ============================================================
 Model: {type(model).__name__}
 Data:  {DATA_PATH.split('/')[-1]}
@@ -325,7 +326,7 @@ HOLD is not a bug. It's the model protecting your capital.
     # Save detailed results
     report_path = 'logs/forensic_backtest_report.txt'
     with open(report_path, 'w') as f:
-        f.write(f"TERMINAL I FORENSIC BACKTEST REPORT\n")
+        f.write(f"TERMINAL FORENSIC BACKTEST REPORT\n")
         f.write(f"Generated: {datetime.now()}\n\n")
         f.write(f"Win Rate: {win_rate:.1f}%\n")
         f.write(f"Profit Factor: {profit_factor:.2f}\n")

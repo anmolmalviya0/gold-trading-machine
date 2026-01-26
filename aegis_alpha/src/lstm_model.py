@@ -1,5 +1,5 @@
 """
-AEGIS V21 - SIMPLIFIED LSTM Model (Defibrillator Protocol)
+TERMINAL - SIMPLIFIED LSTM Model (Defibrillator Protocol)
 ===========================================================
 Simplified architecture to prevent sigmoid saturation.
 Removed: Bidirectional, Attention, Deep FC layers
@@ -11,9 +11,9 @@ import numpy as np
 from typing import Tuple, Optional
 
 
-class AegisLSTM(nn.Module):
+class TerminalLSTM(nn.Module):
     """
-    SIMPLIFIED AEGIS LSTM - Defibrillator Protocol
+    SIMPLIFIED TERMINAL LSTM - Defibrillator Protocol
     
     Architecture:
     - BatchNorm on input features
@@ -30,7 +30,7 @@ class AegisLSTM(nn.Module):
         num_layers: int = 2,        # Stacked LSTM layers
         dropout: float = 0.2        # Regularization
     ):
-        super(AegisLSTM, self).__init__()
+        super(TerminalLSTM, self).__init__()
         
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -106,7 +106,7 @@ class SignalPredictor:
     High-level wrapper for LSTM predictions
     
     Usage:
-        predictor = SignalPredictor('models/aegis_lstm.pth')
+        predictor = SignalPredictor('models/terminal_lstm.pth')
         result = predictor.predict(features, threshold=0.5)
     """
     
@@ -123,7 +123,7 @@ class SignalPredictor:
             checkpoint = torch.load(path, map_location=self.device)
             
             # Reconstruct model with saved config
-            self.model = AegisLSTM(
+            self.model = TerminalLSTM(
                 input_size=checkpoint.get('input_size', 20),
                 hidden_size=checkpoint.get('hidden_size', 128),
                 num_layers=checkpoint.get('num_layers', 2),
@@ -186,9 +186,9 @@ class SignalPredictor:
 
 if __name__ == '__main__':
     # Test model creation
-    print("🧪 Testing SIMPLIFIED AEGIS LSTM Model...")
+    print("🧪 Testing SIMPLIFIED TERMINAL LSTM Model...")
     
-    model = AegisLSTM(input_size=20, hidden_size=128, num_layers=2)
+    model = TerminalLSTM(input_size=20, hidden_size=128, num_layers=2)
     
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters())

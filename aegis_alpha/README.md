@@ -1,8 +1,8 @@
-# AEGIS V21 - Institutional Quantitative Trading System ("The Switchblade")
+# TERMINAL - Institutional Quantitative Trading System ("The Switchblade")
 
 > **"The goal is not action. The goal is Alpha."**
 
-AEGIS V21 is a high-frequency, multi-timeframe quantitative trading engine designed for the cryptocurrency and commodities markets. It leverages an ensemble of LightGBM models ("Switchblade Protocol") to detect high-probability setups with institutional-grade risk management.
+TERMINAL is a high-frequency, multi-timeframe quantitative trading engine designed for the cryptocurrency and commodities markets. It leverages an ensemble of LightGBM models ("Switchblade Protocol") to detect high-probability setups with institutional-grade risk management.
 
 ![System Architecture](https://img.shields.io/badge/Architecture-Event--Driven-blue?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-LIVE_PAPER_TRADING-green?style=for-the-badge&animate=pulse)
@@ -14,13 +14,9 @@ AEGIS V21 is a high-frequency, multi-timeframe quantitative trading engine desig
 
 The system is composed of four autonomous subsystems operating in a distributed environment:
 
-| Component | Responsibility | Technology |
-|-----------|----------------|------------|
-| **Daemon (`daemon.sh`)** | 24/7 Process Manager & Health Monitor | Bash / LaunchCtl |
-| **Executor (`usage.py`)** | The Central Nervous System. Handles logic. | Python 3.10+ |
-| **Switchblade (`models/`)** | LightGBM Ensemble (80.3% Win Rate Target) | LightGBM / Sklearn |
-| **API Server (`api_server.py`)** | Interface for UI and Signal Injection | FastAPI / Uvicorn |
 | **Dashboard** | Real-time Visualization | Next.js / React |
+| **Intel Scout (`intel_scout.py`)** | Sovereign Reasoning (Gemini/Perplexity) | Python / LLM |
+| **Eternal Guard (`eternal_guard.sh`)** | 24/7 Lid-Close Station Hardening | Bash / Caffeinate |
 
 ---
 
@@ -46,11 +42,16 @@ The system is composed of four autonomous subsystems operating in a distributed 
    # conda install -c conda-forge ta-lib
    ```
 
-3. **Install 24/7 Daemon**
+3. **Sovereign Ignition (Option 1 - FAST & FREE)**
    ```bash
-   ./daemon.sh install
+   ./eternal_guard.sh
    ```
-   *This registers the LaunchAgent to keep the bot running across reboots.*
+   *This keeps the station alive 24/7, even with the lid closed. Required for iPhone awareness.*
+
+4. **Integrate Intelligence (Phase 4)**
+   - Copy `.env.example` to `.env`
+   - Inject your Binance, Gemini, and Perplexity keys into the Vault.
+   - Run `python3 src/intel_scout.py` to ignite the Sovereign Mind.
 
 ---
 

@@ -1,5 +1,5 @@
 """
-AEGIS V21 - LightGBM Trainer (Switchblade Protocol)
+TERMINAL - LightGBM Trainer (Switchblade Protocol)
 ====================================================
 Fast gradient boosting classifier as alternative to LSTM.
 Reuses existing data infrastructure and Triple-Barrier labeling.
@@ -150,7 +150,7 @@ def create_triple_barrier_labels(df, tp_atr=2.0, sl_atr=1.5, max_bars=20):
 def main():
     print("""
     ╔══════════════════════════════════════════════════════════╗
-    ║          AEGIS V21 - LIGHTGBM TRAINER                    ║
+    ║          TERMINAL - LIGHTGBM TRAINER                    ║
     ║              The Switchblade Protocol                    ║
     ╚══════════════════════════════════════════════════════════╝
     """)
@@ -229,9 +229,9 @@ def main():
             print(f"⚪ Conf>{threshold}: No trades")
     
     # 10. Save model
-    model_dir = '/Users/anmol/Desktop/gold/aegis_alpha/models'
+    model_dir = '/Users/anmol/Desktop/gold/terminal_alpha/models'
     os.makedirs(model_dir, exist_ok=True)
-    model_path = os.path.join(model_dir, 'aegis_lgbm.pkl')
+    model_path = os.path.join(model_dir, 'terminal_lgbm.pkl')
     
     joblib.dump(model, model_path)
     print(f"\n💾 Model saved to: {model_path}")

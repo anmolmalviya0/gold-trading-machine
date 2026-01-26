@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 const CandlestickChart = dynamic(() => import('./components/CandlestickChart'), { ssr: false });
 const TradingViewChart = dynamic(() => import('./components/TradingViewChart'), { ssr: false });
 
-export default function AegisDashboard() {
+export default function TerminalDashboard() {
   const [status, setStatus] = useState<any>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [activeAsset, setActiveAsset] = useState("BTC");
@@ -16,12 +16,18 @@ export default function AegisDashboard() {
   const [marketData, setMarketData] = useState<any[]>([]);
   const [prediction, setPrediction] = useState<any>(null);
   const [news, setNews] = useState<any[]>([]);
+  const [calendar, setCalendar] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'sentient' | 'pro'>('pro'); 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // CLOUD READY: Dynamic API Base Detection
-  const [apiBase, setApiBase] = useState("http://localhost:8000");
-  const [wsBase, setWsBase] = useState("ws://localhost:8000");
+  const [apiBase, setApiBase] = useState("");
+  const [wsBase, setWsBase] = useState("");
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -29,137 +35,144 @@ export default function AegisDashboard() {
         const protocol = window.location.protocol;
         const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
         
-        // If on cloud (not localhost/127.0.0.1), use the current host but on port 8000
-        if (host !== 'localhost' && host !== '127.0.0.1') {
-            setApiBase(`${protocol}//${host}:8000`);
-            setWsBase(`${wsProtocol}//${host}:8000`);
-        }
+        // Hardened: use explicit loopback to avoid IPv6 resolution issues
+        const baseHost = (host === 'localhost' || host === '127.0.0.1') ? '127.0.0.1' : host;
+        
+        setApiBase(`${protocol}//${baseHost}:8000`);
+        setWsBase(`${wsProtocol}//${baseHost}:8000`);
     }
   }, []);
 
-  // Poll Logs & Status
+  // Poll System Status & Logs (Zero-Latency)
   useEffect(() => {
+    if (!mounted || !apiBase) return;
     const fetchSystem = async () => {
         try {
-            const sRes = await fetch(`${apiBase}/api/status`);
-            const lRes = await fetch(`${apiBase}/api/logs?lines=20`);
-            setStatus(await sRes.json());
-            setLogs((await lRes.json()).logs);
-        } catch(e) { console.error(e); }
+            const [sRes, lRes] = await Promise.all([
+                fetch(`${apiBase}/api/status`, { signal: AbortSignal.timeout(2000) }),
+                fetch(`${apiBase}/api/logs?lines=20`, { signal: AbortSignal.timeout(2000) })
+            ]);
+            if (sRes.ok) setStatus(await sRes.json());
+            if (lRes.ok) setLogs((await lRes.json()).logs || []);
+        } catch (err) {
+            console.warn("💓 Station Heartbeat Lost. Attempting reconnection...");
+        }
     };
     fetchSystem();
-    const interval = setInterval(fetchSystem, 2000); // 2s polling
+    const interval = setInterval(fetchSystem, 1000);
     return () => clearInterval(interval);
-  }, [apiBase]);
+  }, [mounted, apiBase]);
 
-  // Poll Market Data & Prediction for Active Asset
+  // Poll News & Economic Pulse
   useEffect(() => {
-    setLoading(true);
-    
-    // Alert sound function
-    const playAlertSound = (frequency: number = 880) => {
-      try {
-        // Create audio context for browser notification sound
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = frequency; // Different pitch for BUY vs SELL
-        oscillator.type = 'sine';
-        gainNode.gain.value = 0.3;
-        
-        oscillator.start();
-        setTimeout(() => {
-          oscillator.stop();
-          audioContext.close();
-        }, 200);
-        
-        // Also show browser notification
-        if (Notification.permission === 'granted') {
-          new Notification(`🎯 TERMINAL I ALERT`, { 
-            body: `BUY Signal detected for ${activeAsset}!`,
-            icon: '🟢'
-          });
-        }
-      } catch (e) {
-        console.log('Audio alert failed:', e);
-      }
+    if (!mounted || !apiBase) return;
+    const fetchIntel = async () => {
+        try {
+            const [nRes, cRes] = await Promise.all([
+                fetch(`${apiBase}/api/news?symbol=${activeAsset}`),
+                fetch(`${apiBase}/api/calendar`)
+            ]);
+            if (nRes.ok) setNews((await nRes.json()).headlines);
+            if (cRes.ok) setCalendar((await cRes.json()).events);
+        } catch (err) {}
     };
+    fetchIntel();
+    const interval = setInterval(fetchIntel, 30000);
+    return () => clearInterval(interval);
+  }, [mounted, apiBase, activeAsset]);
+
+  // SONIC VISOR: Real-time Audio Alerts
+  useEffect(() => {
+    if (!prediction) return;
     
+    const signal = prediction.signal;
+    if (signal === "BUY" || signal === "SELL") {
+        // High-Frequency Sonar Ping
+        const playSonar = () => {
+            try {
+                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(signal === "BUY" ? 880 : 440, audioCtx.currentTime); // A5 for Buy, A4 for Sell
+                
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.5);
+            } catch (e) {
+                console.warn("Sonic Visor: Audio blocked by browser policy. Interaction required.");
+            }
+        };
+        
+        // Anti-Spam: Only play if it's a new actionable signal
+        playSonar();
+    }
+  }, [prediction?.signal, prediction?.timestamp]);
+
+  // Poll Market Data & Prediction
+  useEffect(() => {
+    if (!mounted || !apiBase || !wsBase) return;
+    setLoading(true);
     const fetchMarket = async () => {
         try {
-            // CRITICAL FIX: Load 500 candles from history API (prevents Giant Candle bug)
             const mRes = await fetch(`${apiBase}/api/history/${activeAsset}?interval=${timeframe}&limit=500`);
-            if (mRes.ok) {
-                const mJson = await mRes.json();
-                setMarketData(mJson.data || []);
-            }
+            if (mRes.ok) setMarketData((await mRes.json()).data || []);
 
-            // Prediction (Always uses default for accuracy)
             const pRes = await fetch(`${apiBase}/api/predict/${activeAsset}`);
-            if (pRes.ok) {
-                const newPrediction = await pRes.json();
-                
-                // ALERT: Play sound if BUY or SELL signal detected
-                if (newPrediction.signal === 'BUY' && newPrediction.confidence >= 0.60) {
-                  playAlertSound(880); // High pitch for BUY
-                  console.log(`🎯 ALERT: BUY signal for ${activeAsset} at ${newPrediction.confidence*100}% confidence`);
-                } else if (newPrediction.signal === 'SELL' && newPrediction.confidence >= 0.70) {
-                  playAlertSound(440); // Low pitch for SELL
-                  console.log(`🔻 ALERT: SELL signal for ${activeAsset} at ${newPrediction.confidence*100}% confidence`);
-                }
-                
-                setPrediction(newPrediction);
-            }
-
+            if (pRes.ok) setPrediction(await pRes.json());
             setLoading(false);
         } catch(e) { console.error(e); }
     };
-    
-    // News
-    const fetchNews = async () => {
-        try {
-            const nRes = await fetch(`${apiBase}/api/news`);
-            if(nRes.ok) setNews((await nRes.json()).headlines);
-        } catch(e) {}
-    };
-
     fetchMarket();
-    fetchNews();
+    const marketInterval = setInterval(fetchMarket, 15000);
     
-    // Intervals
-    const marketInterval = setInterval(fetchMarket, 15000); // 15s Market Data
-    const newsInterval = setInterval(fetchNews, 30000);     // 30s News Refresh (Requested)
-    
-    // WEBSOCKET: 0.5s Real-Time Updates
-    const ws = new WebSocket(`${wsBase}/ws`);
-    ws.onmessage = (event) => {
-        try {
-            const msg = JSON.parse(event.data);
-            if (msg.type === "price_update" && msg.data[activeAsset]) {
-                const livePrice = msg.data[activeAsset];
-                
-                // Update Prediction Price Display Instantly
-                setPrediction((prev: any) => prev ? ({...prev, price: livePrice}) : null);
-            }
-        } catch(e) {}
-    };
+    // WEBSOCKET: 0.5s Real-Time
+    let ws: WebSocket | null = null;
+    try {
+        ws = new WebSocket(`${wsBase}/ws`);
+        ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === "price_update" && msg.data && msg.data[activeAsset]) {
+                    const livePrice = msg.data[activeAsset];
+                    setPrediction((prev: any) => prev ? ({...prev, price: livePrice}) : null);
+                }
+            } catch(e) {}
+        };
+    } catch (e) {
+        console.error("WS Ignition Error:", e);
+    }
     
     return () => {
         clearInterval(marketInterval);
-        clearInterval(newsInterval);
-        ws.close();
+        if (ws) ws.close();
     };
-  }, [apiBase, wsBase, activeAsset, timeframe]); // Dependency added
+  }, [mounted, apiBase, wsBase, activeAsset, timeframe]);
 
   const assets = ["BTC", "ETH", "SOL", "BNB", "PAXG"];
 
+  if (!mounted) {
+    return (
+      <div 
+        suppressHydrationWarning
+        className="min-h-screen bg-[#050505] flex items-center justify-center font-mono text-emerald-900 animate-pulse"
+      >
+        <span className="text-4xl mr-4">🛡️</span>
+        <span className="tracking-[0.3em] font-black">SYNCHRONIZING TERMINAL VISOR...</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#050505] text-emerald-500 font-mono p-4 md:p-8 selection:bg-emerald-900/30">
-      <style jsx global>{`
+    <div suppressHydrationWarning className="min-h-screen bg-[#050505] text-emerald-500 font-mono p-4 md:p-8 selection:bg-emerald-900/30">
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes scan {
             0% { top: 0%; opacity: 0; }
             50% { opacity: 1; }
@@ -168,7 +181,7 @@ export default function AegisDashboard() {
         .animate-scan {
             animation: scan 4s linear infinite;
         }
-      `}</style>
+      `}} />
       {/* HEADER */}
       <header className="flex flex-col md:flex-row justify-between items-center mb-10 border-b border-emerald-900/30 pb-6 gap-6">
         <div className="flex items-center gap-4">
@@ -177,7 +190,7 @@ export default function AegisDashboard() {
             <div className="absolute inset-0 bg-emerald-400/20 blur-xl rounded-full"></div>
           </div>
           <div>
-            <h1 className="text-4xl font-black tracking-tighter text-white">TERMINAL I</h1>
+            <h1 className="text-4xl font-black tracking-tighter text-white">TERMINAL</h1>
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
@@ -207,9 +220,9 @@ export default function AegisDashboard() {
             ))}
         </div>
 
-        <div className={`px-4 py-2 rounded border text-xs font-bold flex items-center gap-2 ${status?.running ? 'bg-cyan-950/30 border-cyan-500/50 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'bg-red-950 border-red-500 text-red-400'}`}>
-            {status?.running ? <Activity className="w-4 h-4 bg-cyan-400 rounded-full text-black p-0.5" /> : <Power className="w-4 h-4" />}
-            {status?.running ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE'}
+        <div className={`px-4 py-2 rounded border text-[10px] font-bold flex items-center gap-2 transition-all duration-700 ${status?.running ? 'bg-cyan-950/30 border-cyan-500/50 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'bg-red-950/20 border-red-500/50 text-red-400'}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${status?.running ? 'bg-cyan-400 animate-pulse' : 'bg-red-500'}`}></div>
+            {status?.running ? 'TERMINAL STABLE' : 'TERMINAL FLUX'}
         </div>
       </header>
 
@@ -234,9 +247,9 @@ export default function AegisDashboard() {
                         </div>
                         <div className="text-5xl font-black text-white flex items-center gap-3 tracking-tighter">
                             ${prediction?.price?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) || "---"}
-                            {marketData.length > 0 && marketData[marketData.length-1].close > marketData[marketData.length-2].close 
+                            {marketData.length > 1 && marketData[marketData.length-1].close > marketData[marketData.length-2].close 
                                 ? <ArrowUpRight className="text-emerald-400 w-8 h-8 animate-pulse" /> 
-                                : <ArrowDownRight className="text-red-500 w-8 h-8 animate-pulse" />
+                                : marketData.length > 1 ? <ArrowDownRight className="text-red-500 w-8 h-8 animate-pulse" /> : null
                             }
                         </div>
                     </div>
@@ -254,7 +267,7 @@ export default function AegisDashboard() {
                                 onClick={() => setViewMode('pro')}
                                 className={`px-3 py-1 text-[10px] font-bold rounded ${viewMode === 'pro' ? 'bg-emerald-500 text-black' : 'text-neutral-500'}`}
                             >
-                                PRO TERMINAL
+                                TERMINAL
                             </button>
                          </div>
 
@@ -274,7 +287,7 @@ export default function AegisDashboard() {
                         <div className="text-right">
                             <div className="text-[10px] text-neutral-500 uppercase tracking-widest">Model Confidence</div>
                             <div className={`text-4xl font-black ${prediction?.confidence > 0.6 ? 'text-emerald-400' : 'text-yellow-500'}`}>
-                                {(prediction?.confidence * 100)?.toFixed(1)}%
+                                {prediction?.confidence ? (prediction.confidence * 100).toFixed(1) : "0.0"}%
                             </div>
                         </div>
                     </div>
@@ -385,21 +398,50 @@ export default function AegisDashboard() {
                      </div>
                  </div>
                  <div className="space-y-4">
-                    {news.map((item, i) => (
+                    {news && news.length > 0 ? news.map((item, i) => (
                         <div key={i} className="border-b border-neutral-800 pb-3 last:border-0 last:pb-0 group cursor-pointer">
-                            <div className="text-neutral-500 text-[10px] mb-1 flex justify-between">
-                                <span>{item.time}</span>
-                                <span className={item.sentiment === 'bullish' ? 'text-green-500' : 'text-red-500'}>{item.sentiment}</span>
+                            <div className="text-neutral-500 text-[10px] mb-1 flex justify-between uppercase tracking-widest font-bold">
+                                <span>{item.time} ({item.minutes_ago}m ago)</span>
+                                <span className={item.sentiment === 'bullish' ? 'text-green-500' : item.sentiment === 'bearish' ? 'text-red-500' : 'text-neutral-500'}>{item.sentiment}</span>
                             </div>
                             <div className="text-sm text-neutral-300 group-hover:text-white transition-colors leading-snug">
                                 {item.title}
                             </div>
                         </div>
-                    ))}
+                    )) : <div className="text-neutral-600 text-xs italic text-center p-4">Awaiting intel...</div>}
                  </div>
             </div>
+             {/* ECONOMIC PULSE (Red/Yellow/Black Files) */}
+             <div className="bg-neutral-900/40 border border-emerald-900/30 rounded-xl p-6 relative overflow-hidden backdrop-blur-sm shadow-2xl">
+                 <h3 className="text-white font-black flex items-center gap-2 mb-6 tracking-tighter text-lg uppercase">
+                    <Activity className="w-5 h-5 text-red-500 animate-pulse" /> ECONOMIC PULSE
+                 </h3>
+                 <div className="space-y-3">
+                    {calendar.length === 0 && <div className="text-neutral-600 text-xs italic text-center p-4">Awaiting pulse...</div>}
+                    {calendar.map((ev: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center text-xs p-3 rounded-lg bg-black/40 border border-neutral-800 hover:border-neutral-600 transition-all group">
+                            <div className="flex items-center gap-4">
+                                <div className="relative">
+                                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ev.color }}></div>
+                                    <div className="absolute inset-0 rounded-full blur-[4px] animate-pulse" style={{ backgroundColor: ev.color }}></div>
+                                </div>
+                                <div>
+                                    <div className="text-neutral-300 font-black tracking-widest text-[11px] mb-0.5">{ev.currency}</div>
+                                    <div className="text-neutral-500 text-[10px] uppercase font-bold group-hover:text-neutral-200 transition-colors">{ev.event}</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-white font-black font-mono text-sm">{ev.time}</div>
+                                <div className={`text-[10px] font-bold uppercase ${ev.minutes < 0 ? 'text-neutral-600' : 'text-cyan-400'}`}>
+                                    {ev.minutes < 0 ? `${Math.abs(ev.minutes)}m ago` : `in ${ev.minutes}m`}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                 </div>
+             </div>
 
-            {/* ACTIONS */}
+             {/* ACTIONS */}
             <button 
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2"
                 onClick={async () => {
@@ -471,22 +513,37 @@ function LiveClock() {
         update();
         return () => clearInterval(i);
     }, []);
-    return <div className="text-xs font-mono text-emerald-500/80">{time}</div>;
+    return <div suppressHydrationWarning className="text-xs font-mono text-emerald-500/80">{time}</div>;
 }
 
 function MarketSession() {
-    const [session, setSession] = useState("ASIAN");
+    const [session, setSession] = useState("SYNCING");
     
     useEffect(() => {
-        const h = new Date().getUTCHours();
-        let s = "CLOSED";
-        if (h >= 0 && h < 8) s = "TOKYO SESSION";
-        else if (h >= 8 && h < 16) s = "LONDON SESSION";
-        else if (h >= 13 && h < 21) s = "NEW YORK SESSION"; // Overlap handled loosely
-        setSession(s);
+        const update = () => {
+            const h = new Date().getUTCHours();
+            const m = new Date().getUTCMinutes();
+            const time = h + m/60;
+
+            let s = "CRYPTO PULSE";
+            let color = "text-emerald-400 border-emerald-900/50 bg-emerald-950/20";
+
+            if (time >= 0 && time < 8) { s = "TOKYO SESSION"; color = "text-blue-400 border-blue-900/50 bg-blue-950/20"; }
+            else if (time >= 8 && time < 16) { s = "LONDON SESSION"; color = "text-cyan-400 border-cyan-900/50 bg-cyan-950/20"; }
+            else if (time >= 13 && time < 21) { s = "NEW YORK SESSION"; color = "text-amber-400 border-amber-900/50 bg-amber-950/20"; }
+            
+            // Overlap Highlight
+            if (time >= 13 && time < 16) s = "NY/LONDON OVERLAP";
+            
+            setSession(s);
+            (window as any)._sessionColor = color; // Hack for dynamic color
+        };
+        update();
+        const i = setInterval(update, 60000);
+        return () => clearInterval(i);
     }, []);
     
-    return <div className="text-[10px] font-bold text-blue-400 border border-blue-900/50 px-2 py-0.5 rounded bg-blue-950/20">{session}</div>;
+    return <div suppressHydrationWarning className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-all duration-1000 ${session === "TOKYO SESSION" ? "text-blue-400 border-blue-900/50 bg-blue-950/20" : session === "LONDON SESSION" ? "text-cyan-400 border-cyan-900/50 bg-cyan-950/20" : session === "NEW YORK SESSION" ? "text-amber-400 border-amber-900/50 bg-amber-950/20" : session === "NY/LONDON OVERLAP" ? "text-purple-400 border-purple-900/50 bg-purple-950/20" : "text-emerald-400 border-emerald-900/50 bg-emerald-950/20"}`}>{session}</div>;
 }
 
 function SignalRow({tf, label, confidence}: {tf: string, label: string, confidence: number}) {

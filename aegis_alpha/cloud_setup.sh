@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # ============================================================
-# AEGIS V21 - PROTOCOL OMEGA CLOUD INSTALLER
+# TERMINAL - PROTOCOL OMEGA CLOUD INSTALLER
 # ============================================================
 # TARGET: Ubuntu 22.04/24.04 LTS
 # ROLE: Stratospheric Migration
 
 set -e # Exit on error
 
-echo "🐉 INITIATING AEGIS CLOUD SETUP..."
+echo "🐉 INITIATING TERMINAL CLOUD SETUP..."
 
 # 1. SYSTEM UPDATE
 echo "🔄 Updating Apt Repositories..."
@@ -36,7 +36,7 @@ pip install ccxt websocket-client pyyaml requests schedule joblib
 pip install fastapi uvicorn httpx python-multipart # API Stack
 
 # 5. NODE.JS (FOR DASHBOARD)
-echo "🌐 Installing Node.js for Terminal I Display..."
+echo "🌐 Installing Node.js for TERMINAL Display..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 

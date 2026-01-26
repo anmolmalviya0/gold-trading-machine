@@ -1,5 +1,5 @@
 """
-AEGIS V21 - LightGBM Adapter
+TERMINAL - LightGBM Adapter
 ============================
 Adapter logic for LightGBM model integration.
 """
@@ -28,13 +28,13 @@ class LightGBMPredictor:
             print(f"❌ Failed to load model: {e}")
             return False
             
-    def predict(self, features: np.ndarray, threshold: float = 0.65) -> dict:
+    def predict(self, features: np.ndarray, threshold: float = 0.5) -> dict:
         """
         Make prediction (compatible with Executor interface)
         
         Args:
             features: Input array. Can be (seq_len, n_feat) or (n_feat,)
-            threshold: Confidence threshold for BUY signal
+            threshold: Confidence threshold for BUY/SELL signals
             
         Returns:
             {'signal': 'BUY'/'HOLD', 'confidence': float, 'approved': bool}
@@ -50,30 +50,27 @@ class LightGBMPredictor:
         # Reshape for single prediction
         features_2d = features.reshape(1, -1)
         
-        # Ensure we have correct number of features (13) by trimming or padding if needed
-        # Robustness check in case raw data shape varies
+        # Ensure we have correct number of features (13)
         expected_feats = 13
+        feature_names = [
+            'returns', 'log_returns', 'high_low_ratio', 'close_open_ratio',
+            'sma_ratio_5', 'sma_ratio_10', 'sma_ratio_20', 'sma_ratio_50',
+            'rsi_norm', 'macd_hist', 'bb_position', 'atr_ratio', 'volume_ratio'
+        ]
+        
         if features_2d.shape[1] > expected_feats:
             features_2d = features_2d[:, :expected_feats]
             
+        # Convert to DataFrame to avoid feature name warnings
+        df_feats = pd.DataFrame(features_2d, columns=feature_names[:features_2d.shape[1]])
+        
         try:
             # Get probability of class 1 (BUY)
-            prob = float(self.model.predict_proba(features_2d)[0, 1])
+            prob = float(self.model.predict_proba(df_feats)[0, 1])
             
-            # THE GLASS BOX: Explain why (Anti-Gravity Protocol V2)
+            # THE GLASS BOX: Explain why
             try:
                 importance = self.model.feature_importances_
-                # Feature names matching the training logic
-                feature_names = [
-                    'RETURNS', 'LOG_RETURNS', 'HIGH_LOW_RATIO', 'CLOSE_OPEN_RATIO',
-                    'SMA_RATIO_5', 'SMA_RATIO_10', 'SMA_RATIO_20', 'SMA_RATIO_50',
-                    'RSI_NORM', 'MACD_HIST', 'BB_POSITION', 'ATR_RATIO', 'VOLUME_RATIO'
-                ]
-                
-                # Trim feature names to match importance array length if they differ
-                # (Safety for cases where model has fewer features)
-                feature_names = feature_names[:len(importance)]
-                
                 top_idx = np.argmax(importance)
                 reason = feature_names[top_idx] if top_idx < len(feature_names) else "UNKNOWN"
             except:

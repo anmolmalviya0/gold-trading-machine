@@ -19,16 +19,28 @@ def calc_position_size(balance: float, risk_pct: float, entry: float, stop_loss:
 
 def prepare_features(df: pd.DataFrame) -> np.ndarray:
     """
-    THE MASTER ENGINE: Standard AEGIS V21 Feature Engineering.
+    THE MASTER ENGINE: Standard TERMINAL Feature Engineering.
     Converts raw OHLCV into a 13-dimension vector for Neural Inference.
     """
     try:
         df = df.copy()
         
-        # 0. NORMALIZE COLUMNS (Sovereign Safety)
-        if isinstance(df.columns, pd.MultiIndex):
+        # 0. AGGRESSIVE NORMALIZATION (Handles YFinance V3 MultiIndex)
+        if hasattr(df.columns, 'levels') and len(df.columns.levels) > 1:
             df.columns = df.columns.get_level_values(0)
-        df.columns = [c.lower() for c in df.columns]
+        
+        # Convert all to lower and strip to avoid any whitespace spirits
+        df.columns = [str(c).lower().strip() for c in df.columns]
+        
+        # Ensure we have the critical 5
+        required = ['open', 'high', 'low', 'close', 'volume']
+        for col in required:
+            if col not in df.columns:
+                # If 'adj close' exists but 'close' doesn't, alias it
+                if col == 'close' and 'adj close' in df.columns:
+                    df['close'] = df['adj close']
+                else:
+                    raise KeyError(f"Critical Column Missing: {col}")
         
         # 1. BASE FEATURES
         df['returns'] = df['close'].pct_change()

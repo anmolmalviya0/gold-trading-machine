@@ -1,5 +1,5 @@
 """
-AEGIS V21 - LightGBM Backtest Engine
+TERMINAL - LightGBM Backtest Engine
 =====================================
 Dedicated backtest engine for LightGBM model.
 Implements Triple-Barrier Logic with 0.65 Confidence Threshold.
@@ -10,7 +10,7 @@ import joblib
 import os
 
 class LightGBMBacktester:
-    def __init__(self, data_path='/Users/anmol/Desktop/gold/market_data/PAXGUSDT_5m.csv', model_path='/Users/anmol/Desktop/gold/aegis_alpha/models/aegis_lgbm.pkl'):
+    def __init__(self, data_path='/Users/anmol/Desktop/gold/market_data/PAXGUSDT_5m.csv', model_path='/Users/anmol/Desktop/gold/terminal_alpha/models/terminal_lgbm.pkl'):
         self.data_path = data_path
         self.model_path = model_path
         self.initial_balance = 10000.0

@@ -1,5 +1,5 @@
 """
-AEGIS V21 - Data Fetcher (Phase 2 Expansion)
+TERMINAL - Data Fetcher (Phase 2 Expansion)
 =============================================
 Fetches historical data for new assets: SOL, BNB, ETH.
 Uses public APIs (Binance/Yahoo) to get 5m/1h data.
@@ -63,7 +63,7 @@ def fetch_data(symbol, period="60d", interval="5m"):
         return None
 
 def main():
-    print("🚀 AEGIS EXPANSION: DATA ACQUISITION")
+    print("🚀 TERMINAL EXPANSION: DATA ACQUISITION")
     print("Targeting: SOL, BNB, ETH")
     
     assets = ['SOL', 'BNB', 'ETH']

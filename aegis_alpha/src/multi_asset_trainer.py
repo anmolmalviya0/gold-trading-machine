@@ -1,5 +1,5 @@
 """
-AEGIS V21 - Multi-Asset Trainer (The Fleet)
+TERMINAL - Multi-Asset Trainer (The Fleet)
 ===========================================
 Trains LightGBM models for multiple assets: SOL, BNB, ETH.
 Reuses the proven Switchblade logic from lgbm_trainer.py.

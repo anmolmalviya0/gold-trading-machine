@@ -1,5 +1,5 @@
 """
-AEGIS V21 - Backtest Engine
+TERMINAL - Backtest Engine
 ============================
 Validates LSTM/LightGBM models against historical data.
 Implements the "Great Filter" criteria.
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 import torch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lstm_model import AegisLSTM, SignalPredictor
+from lstm_model import TerminalLSTM, SignalPredictor
 
 
 class LightGBMPredictor:
@@ -94,7 +94,7 @@ class BacktestEngine:
     
     def __init__(
         self,
-        model_path: str = '../aegis_alpha/models/aegis_lstm.pth',
+        model_path: str = '../terminal_alpha/models/terminal_lstm.pth',
         initial_capital: float = 10000,
         risk_per_trade: float = 0.02,  # 2% risk per trade
         fee_rate: float = 0.001,  # 0.1% per trade
@@ -208,7 +208,7 @@ class BacktestEngine:
             Backtest metrics
         """
         print("\n" + "="*60)
-        print("🔬 AEGIS V21 BACKTEST ENGINE")
+        print("🔬 TERMINAL BACKTEST ENGINE")
         print("="*60)
         
         if not self.load_model():
@@ -460,13 +460,13 @@ if __name__ == '__main__':
     
     print("""
     ╔══════════════════════════════════════════════════════════╗
-    ║          AEGIS V21 - BACKTEST ENGINE                     ║
+    ║          TERMINAL - BACKTEST ENGINE                     ║
     ║              The Great Filter Validation                 ║
     ╚══════════════════════════════════════════════════════════╝
     """)
     
     # Parse CLI arguments
-    parser = argparse.ArgumentParser(description='AEGIS V21 Backtest Engine')
+    parser = argparse.ArgumentParser(description='TERMINAL Backtest Engine')
     parser.add_argument('--symbol', type=str, default='BTC/USDT', 
                         help='Asset symbol to backtest (e.g., BTC/USDT, ETH/USDT)')
     parser.add_argument('--days', type=int, default=30,
@@ -568,7 +568,7 @@ if __name__ == '__main__':
     os.makedirs(os.path.dirname(results_file), exist_ok=True)
     
     with open(results_file, 'w') as f:
-        f.write(f"AEGIS V21 Backtest Results - {args.symbol}\n")
+        f.write(f"TERMINAL Backtest Results - {args.symbol}\n")
         f.write(f"Generated: {datetime.now().isoformat()}\n")
         f.write(f"="*50 + "\n\n")
         for k, v in results.items():

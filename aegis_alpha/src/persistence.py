@@ -1,5 +1,5 @@
 """
-TERMINAL I - Persistence Layer
+TERMINAL - Persistence Layer
 ================================
 SQLite3 wrapper for trade history, signals, and model performance tracking.
 
@@ -18,7 +18,7 @@ import pandas as pd
 
 
 class Database:
-    """SQLite database manager for TERMINAL I"""
+    """SQLite database manager for TERMINAL"""
     
     def __init__(self, db_path: str = 'data/war_room.db'):
         """
@@ -101,58 +101,62 @@ class Database:
     
     def log_signal(self, symbol: str, signal_data: Dict) -> int:
         """
-        Log a trading signal
-        
-        Args:
-            symbol: Trading pair (e.g., 'BTCUSDT')
-            signal_data: Dict with keys: signal, confidence, approved, etc.
-            
-        Returns:
-            Signal ID
+        Log a trading signal with Atomic Integrity
         """
-        self.cursor.execute('''
-            INSERT INTO signals (
-                timestamp, symbol, price, confidence, signal, approved,
-                entry_price, stop_loss, take_profit, reason
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            datetime.now().isoformat(),
-            symbol,
-            signal_data.get('price', 0),
-            signal_data.get('confidence', 0),
-            signal_data.get('signal', 'HOLD'),
-            1 if signal_data.get('approved', False) else 0,
-            signal_data.get('entry_price'),
-            signal_data.get('stop_loss'),
-            signal_data.get('take_profit'),
-            signal_data.get('reason', 'N/A')
-        ))
-        self.conn.commit()
-        return self.cursor.lastrowid
-    
+        try:
+            with self.conn:
+                cursor = self.conn.cursor()
+                cursor.execute('''
+                    INSERT INTO signals (
+                        timestamp, symbol, price, confidence, signal, approved,
+                        entry_price, stop_loss, take_profit, reason
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    datetime.now().isoformat(),
+                    symbol,
+                    signal_data.get('price', 0),
+                    signal_data.get('confidence', 0),
+                    signal_data.get('signal', 'HOLD'),
+                    1 if signal_data.get('approved', False) else 0,
+                    signal_data.get('entry_price'),
+                    signal_data.get('stop_loss'),
+                    signal_data.get('take_profit'),
+                    signal_data.get('reason', 'N/A')
+                ))
+                return cursor.lastrowid
+        except Exception as e:
+            print(f"❌ DB Signal Error: {e}")
+            return -1
+
     def get_signals(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict]:
-        """Get recent signals"""
-        query = 'SELECT * FROM signals'
-        params = []
-        
-        if symbol:
-            query += ' WHERE symbol = ?'
-            params.append(symbol)
-        
-        query += ' ORDER BY timestamp DESC LIMIT ?'
-        params.append(limit)
-        
-        self.cursor.execute(query, params)
-        columns = [desc[0] for desc in self.cursor.description]
-        return [dict(zip(columns, row)) for row in self.cursor.fetchall()]
-    
+        """Get recent signals with Safe Cursor management"""
+        try:
+            cursor = self.conn.cursor()
+            query = 'SELECT * FROM signals'
+            params = []
+            
+            if symbol:
+                query += ' WHERE symbol = ?'
+                params.append(symbol)
+            
+            query += ' ORDER BY timestamp DESC LIMIT ?'
+            params.append(limit)
+            
+            cursor.execute(query, params)
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"❌ DB Query Error: {e}")
+            return []
+
     def mark_signal_executed(self, signal_id: int):
-        """Mark a signal as executed"""
-        self.cursor.execute(
-            'UPDATE signals SET executed = 1 WHERE id = ?',
-            (signal_id,)
-        )
-        self.conn.commit()
+        """Mark a signal as executed with Atomic commit"""
+        try:
+            with self.conn:
+                cursor = self.conn.cursor()
+                cursor.execute('UPDATE signals SET executed = 1 WHERE id = ?', (signal_id,))
+        except Exception as e:
+            print(f"❌ DB Exec Update Error: {e}")
     
     # ============================================================
     # TRADES
@@ -161,79 +165,56 @@ class Database:
     def log_trade(self, symbol: str, side: str, entry_price: float, 
                    quantity: float, stop_loss: float = None, 
                    take_profit: float = None) -> int:
-        """
-        Log a new trade
-        
-        Args:
-            symbol: Trading pair
-            side: 'BUY' or 'SELL'
-            entry_price: Entry price
-            quantity: Position size
-            stop_loss: Stop loss price
-            take_profit: Take profit price
-            
-        Returns:
-            Trade ID
-        """
-        self.cursor.execute('''
-            INSERT INTO trades (
-                timestamp, symbol, side, entry_price, quantity,
-                stop_loss, take_profit, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN')
-        ''', (
-            datetime.now().isoformat(),
-            symbol,
-            side,
-            entry_price,
-            quantity,
-            stop_loss,
-            take_profit
-        ))
-        self.conn.commit()
-        return self.cursor.lastrowid
-    
+        """Log a new trade with Atomic Integrity"""
+        try:
+            with self.conn:
+                cursor = self.conn.cursor()
+                cursor.execute('''
+                    INSERT INTO trades (
+                        timestamp, symbol, side, entry_price, quantity,
+                        stop_loss, take_profit, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN')
+                ''', (
+                    datetime.now().isoformat(),
+                    symbol,
+                    side,
+                    entry_price,
+                    quantity,
+                    stop_loss,
+                    take_profit
+                ))
+                return cursor.lastrowid
+        except Exception as e:
+            print(f"❌ DB Trade Error: {e}")
+            return -1
+
     def close_trade(self, trade_id: int, exit_price: float, notes: str = None):
-        """
-        Close an existing trade and calculate PnL
-        
-        Args:
-            trade_id: ID of the trade to close
-            exit_price: Exit price
-            notes: Optional notes (e.g., 'TP hit', 'SL hit')
-        """
-        # Get trade details
-        self.cursor.execute('SELECT * FROM trades WHERE id = ?', (trade_id,))
-        trade = self.cursor.fetchone()
-        
-        if not trade:
-            raise ValueError(f"Trade {trade_id} not found")
-        
-        # Calculate PnL
-        side = trade[3]  # Column index for 'side'
-        entry_price = trade[4]
-        quantity = trade[5]
-        
-        if side == 'BUY':
-            pnl = (exit_price - entry_price) * quantity
-        else:  # SELL
-            pnl = (entry_price - exit_price) * quantity
-        
-        # Update trade
-        self.cursor.execute('''
-            UPDATE trades 
-            SET exit_price = ?, pnl = ?, status = 'CLOSED',
-                exit_timestamp = ?, notes = ?
-            WHERE id = ?
-        ''', (
-            exit_price,
-            pnl,
-            datetime.now().isoformat(),
-            notes,
-            trade_id
-        ))
-        self.conn.commit()
-        
-        return pnl
+        """Close an existing trade and calculate PnL Atomically"""
+        try:
+            with self.conn:
+                cursor = self.conn.cursor()
+                cursor.execute('SELECT * FROM trades WHERE id = ?', (trade_id,))
+                trade = cursor.fetchone()
+                
+                if not trade:
+                    return 0
+                
+                # Calculate PnL
+                side = trade[3]
+                entry_price = trade[4]
+                quantity = trade[5]
+                pnl = (exit_price - entry_price) * quantity if side == 'BUY' else (entry_price - exit_price) * quantity
+                
+                cursor.execute('''
+                    UPDATE trades 
+                    SET exit_price = ?, pnl = ?, status = 'CLOSED',
+                        exit_timestamp = ?, notes = ?
+                    WHERE id = ?
+                ''', (exit_price, pnl, datetime.now().isoformat(), notes, trade_id))
+                return pnl
+        except Exception as e:
+            print(f"❌ DB Close Error: {e}")
+            return 0
     
     def get_trades(self, symbol: Optional[str] = None, status: str = None) -> List[Dict]:
         """Get trades with optional filters"""

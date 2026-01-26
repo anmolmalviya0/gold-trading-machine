@@ -13,13 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AEGIS V21 | TERMINAL I",
-  description: "Institutional Quant Trading Machine",
-  appleWebApp: {
-    capable: true,
-    title: "TERMINAL I",
-    statusBarStyle: "black-translucent",
-  },
+  title: "TERMINAL | switchblade protocol",
+  description: "NASA-Grade Autonomous Market Interceptor",
 };
 
 export default function RootLayout({
@@ -28,9 +23,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        suppressHydrationWarning
       >
         {children}
       </body>

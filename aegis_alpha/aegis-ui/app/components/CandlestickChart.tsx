@@ -151,9 +151,9 @@ export default function CandlestickChart({ data }: CandlestickChartProps) {
                 
                 // Only fit once on initial data load, not on every update
                 // This prevents the "Auto-Zoom-Out" bug requested by the user.
-                const isInitialLoad = !chartRef.current?.timeScale().getVisibleRange();
+                const isInitialLoad = !chartRef.current?.timeScale()?.getVisibleRange();
                 if (isInitialLoad) {
-                    chartRef.current?.timeScale().fitContent();
+                    chartRef.current?.timeScale()?.fitContent();
                 }
             }
         } catch (e) {
