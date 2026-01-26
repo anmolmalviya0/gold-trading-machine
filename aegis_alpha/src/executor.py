@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import yaml
 import ccxt
+import requests
 
 # Setup logging
 logging.basicConfig(

@@ -47,8 +47,13 @@ app.add_middleware(
 LOG_FILE = "logs/executor.log"
 IGNITION_FILE = "logs/.ignition_time"
 DAEMON_SCRIPT = "src/executor.py"
-MODELS_DIR = "models"
 MODEL_CACHE = {}
+INTEL_BUFFER = {
+    "sentiment_score": 0.0,
+    "macro_bias": "NEUTRAL",
+    "high_impact_events": [],
+    "last_update": None
+}
 
 # THE ETERNAL IGNITION PROTOCOL
 def get_ignition_time():
@@ -392,6 +397,23 @@ async def get_calendar():
     except Exception as e:
         print(f"⚠️ Calendar Error: {e}")
         return {"events": []}
+
+@app.post("/api/intel/update")
+async def update_intel(data: Dict):
+    """Internal endpoint for Intel Scout to push sovereign intelligence"""
+    global INTEL_BUFFER
+    INTEL_BUFFER.update(data)
+    # Broadcast to WS visors
+    await manager.broadcast(json.dumps({
+        "type": "intel_update",
+        "data": INTEL_BUFFER
+    }))
+    return {"status": "success"}
+
+@app.get("/api/intel")
+async def get_intel():
+    """Expose the Sovereign Intel Buffer to the Visor"""
+    return INTEL_BUFFER
 
 @app.post("/api/recalibrate")
 async def recalibrate():
