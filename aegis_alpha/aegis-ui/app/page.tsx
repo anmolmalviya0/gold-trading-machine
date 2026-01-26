@@ -365,6 +365,43 @@ export default function TerminalDashboard() {
                  </div>
             </div>
 
+            {/* SOVEREIGN INTELLIGENCE (Phase 4) */}
+            <div className="bg-neutral-900/40 border border-blue-500/30 rounded-xl p-6 relative overflow-hidden backdrop-blur-md shadow-[0_0_20px_rgba(59,130,246,0.1)]">
+                 <div className="absolute top-0 left-0 w-full h-[1px] bg-blue-500/20 animate-scan"></div>
+                 <h3 className="text-white font-black mb-4 flex items-center gap-2 tracking-tighter uppercase">
+                    <Shield className="w-5 h-5 text-blue-400" /> Sovereign Intel
+                 </h3>
+                 <div className="space-y-4">
+                    <div className="flex justify-between items-center text-xs">
+                        <span className="text-neutral-500 uppercase font-bold tracking-widest">Macro Bias</span>
+                        <span className={`px-2 py-0.5 rounded font-black ${
+                            status?.intel?.macro_bias === 'BULLISH' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                            status?.intel?.macro_bias === 'BEARISH' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 
+                            'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                        }`}>
+                            {status?.intel?.macro_bias || 'NEUTRAL'}
+                        </span>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
+                            <span>Intelligence Sentiment</span>
+                            <span className="text-blue-400">{((status?.intel?.sentiment_score || 0) * 100).toFixed(1)}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden border border-neutral-700">
+                            <div 
+                                className={`h-full transition-all duration-1000 ${
+                                    (status?.intel?.sentiment_score || 0) >= 0 ? 'bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
+                                }`}
+                                style={{ width: `${50 + (status?.intel?.sentiment_score || 0) * 50}%` }}
+                            ></div>
+                        </div>
+                    </div>
+                    <div className="text-[9px] text-neutral-600 font-mono text-center">
+                        Fusing Gemini & Perplexity Vectors...
+                    </div>
+                 </div>
+            </div>
+
             {/* SIGNAL MATRIX - Council of Time */}
             <div className="bg-neutral-900/30 border border-emerald-900/30 rounded-xl p-6">
                  <h3 className="text-white font-bold mb-4 flex items-center gap-2">

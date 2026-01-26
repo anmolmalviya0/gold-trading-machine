@@ -239,6 +239,24 @@ class SentinelExecutor:
                 
                 logger.info(f"🔍 Scan {pair}: {signal} ({confidence:.1%}) | Reason: {reason} | Price: {price_now}")
                 
+                # 5. SOVEREIGN INTELLIGENCE FUSION (Phase 4)
+                intel_data = {"sentiment_score": 0.0, "macro_bias": "NEUTRAL"}
+                try:
+                    import requests
+                    res = requests.get("http://127.0.0.1:8000/api/intel", timeout=1)
+                    if res.status_code == 200:
+                        intel_data = res.json()
+                except:
+                    pass
+                
+                sentiment_score = intel_data.get("sentiment_score", 0.0)
+                
+                # Apply Sentiment Shield (If Gemini is bearish, increase Buy threshold)
+                current_buy_threshold = threshold
+                if sentiment_score < -0.3:
+                    current_buy_threshold += 0.10 # Harder to buy in bad news
+                    logger.info(f"🛡️ Sentiment Shield: Hardening Buy Threshold to {current_buy_threshold:.2f} (Bearish News)")
+                
                 # Update Cache
                 self.last_signals[pair] = signal
                 
@@ -246,7 +264,12 @@ class SentinelExecutor:
                 result['price'] = price_now
                 self.process_signal(pair, result)
                 
-                # 5. Execute with Volatility Shield
+                # 6. Execute with Volatility Shield
+                # Re-check signal against Sentiment-Adjusted threshold
+                if signal == 'BUY' and confidence < current_buy_threshold:
+                    logger.warning(f"🚫 Trade VETOED by Sovereign Intelligence: {confidence:.2f} < {current_buy_threshold:.2f}")
+                    continue
+
                 if signal != 'HOLD' and result.get('approved', False):
                     # APPLY VOLATILITY SHIELD (Step 1)
                     if not self.is_market_safe(pair, df):

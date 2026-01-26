@@ -86,7 +86,6 @@ start() {
     # Start Dashboard
     echo -e "   Starting Dashboard (TERMINAL)..."
     cd "$AEGIS_HOME/aegis-ui"
-    # Detect if npm is present (Server might use pm2 or direct node)
     if command -v npm &> /dev/null; then
         nohup npm run dev >> "$AEGIS_HOME/logs/nextjs.log" 2>&1 &
         DASH_PID=$!
@@ -96,10 +95,16 @@ start() {
     fi
     cd "$AEGIS_HOME"
     
-    # Save PIDs (Executor is main PID)
+    # Start Intel Scout (Phase 4)
+    echo -e "   Starting Intel Scout (Gemini/Perplexity)..."
+    nohup $PYTHON_EXEC src/intel_scout.py >> "$AEGIS_HOME/logs/intel_scout.log" 2>&1 &
+    INTEL_PID=$!
+    
+    # Save PIDs
     echo $EXEC_PID > "$PID_FILE"
     echo $API_PID > "$AEGIS_HOME/api.pid"
     echo $DASH_PID > "$AEGIS_HOME/dashboard.pid"
+    echo $INTEL_PID > "$AEGIS_HOME/intel_scout.pid"
     
     sleep 2
     
