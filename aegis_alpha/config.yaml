@@ -66,15 +66,17 @@ confidence:
 
 # RISK MANAGEMENT (HARD DECK - DO NOT MODIFY)
 risk:
-  max_per_trade: 0.03   # 3% max risk per trade
+  max_per_trade: 0.01   # 1% Hard Deck (Anti-Gravity Protocol)
+  max_drawdown_limit: 0.15 # 15% Kill Switch
+  safe_mode: true       # PAPER TRADING ACTIVE
   stop_loss_atr: 1.5    # Stop loss at -1.5 ATR
   take_profit_atr: 2.0  # Take profit at +2.0 ATR
 
 # DATA SOURCES
 data:
-  primary: "binance"    # Live price feed
-  fallback: "yfinance"  # Backup for OHLCV
-  cache_ttl: 500        # 500ms cache for WebSocket
+  primary: "binance"
+  fallback: "yfinance"
+  cache_ttl: 500
 
 # ASSETS
 assets:

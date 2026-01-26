@@ -58,13 +58,33 @@ class LightGBMPredictor:
             
         try:
             # Get probability of class 1 (BUY)
-            prob = self.model.predict_proba(features_2d)[0, 1]
+            prob = float(self.model.predict_proba(features_2d)[0, 1])
             
+            # THE GLASS BOX: Explain why (Anti-Gravity Protocol V2)
+            try:
+                importance = self.model.feature_importances_
+                # Feature names matching the training logic
+                feature_names = [
+                    'RETURNS', 'LOG_RETURNS', 'HIGH_LOW_RATIO', 'CLOSE_OPEN_RATIO',
+                    'SMA_RATIO_5', 'SMA_RATIO_10', 'SMA_RATIO_20', 'SMA_RATIO_50',
+                    'RSI_NORM', 'MACD_HIST', 'BB_POSITION', 'ATR_RATIO', 'VOLUME_RATIO'
+                ]
+                
+                # Trim feature names to match importance array length if they differ
+                # (Safety for cases where model has fewer features)
+                feature_names = feature_names[:len(importance)]
+                
+                top_idx = np.argmax(importance)
+                reason = feature_names[top_idx] if top_idx < len(feature_names) else "UNKNOWN"
+            except:
+                reason = "ENSEMBLE_WEIGHT"
+
             return {
                 'signal': 'BUY' if prob >= threshold else 'HOLD',
-                'confidence': float(prob),
-                'approved': prob >= threshold
+                'confidence': prob,
+                'approved': prob >= threshold,
+                'reason': reason
             }
         except Exception as e:
             print(f"Prediction error: {e}")
-            return {'signal': 'ERROR', 'confidence': 0.0, 'approved': False}
+            return {'signal': 'ERROR', 'confidence': 0.0, 'approved': False, 'reason': "FAILURE"}

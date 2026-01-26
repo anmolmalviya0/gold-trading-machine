@@ -53,7 +53,8 @@ class Database:
                 entry_price REAL,
                 stop_loss REAL,
                 take_profit REAL,
-                executed INTEGER DEFAULT 0
+                executed INTEGER DEFAULT 0,
+                reason TEXT
             )
         ''')
         
@@ -112,8 +113,8 @@ class Database:
         self.cursor.execute('''
             INSERT INTO signals (
                 timestamp, symbol, price, confidence, signal, approved,
-                entry_price, stop_loss, take_profit
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                entry_price, stop_loss, take_profit, reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             datetime.now().isoformat(),
             symbol,
@@ -123,7 +124,8 @@ class Database:
             1 if signal_data.get('approved', False) else 0,
             signal_data.get('entry_price'),
             signal_data.get('stop_loss'),
-            signal_data.get('take_profit')
+            signal_data.get('take_profit'),
+            signal_data.get('reason', 'N/A')
         ))
         self.conn.commit()
         return self.cursor.lastrowid

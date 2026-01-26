@@ -6,23 +6,43 @@ import dynamic from 'next/dynamic';
 
 // Dynamically import CandlestickChart (client-side only to avoid SSR issues)
 const CandlestickChart = dynamic(() => import('./components/CandlestickChart'), { ssr: false });
+const TradingViewChart = dynamic(() => import('./components/TradingViewChart'), { ssr: false });
 
 export default function AegisDashboard() {
   const [status, setStatus] = useState<any>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [activeAsset, setActiveAsset] = useState("BTC");
-  const [timeframe, setTimeframe] = useState("15m"); // New Timeframe State
+  const [timeframe, setTimeframe] = useState("15m"); 
   const [marketData, setMarketData] = useState<any[]>([]);
   const [prediction, setPrediction] = useState<any>(null);
   const [news, setNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'sentient' | 'pro'>('pro'); 
+
+  // CLOUD READY: Dynamic API Base Detection
+  const [apiBase, setApiBase] = useState("http://localhost:8000");
+  const [wsBase, setWsBase] = useState("ws://localhost:8000");
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const host = window.location.hostname;
+        const protocol = window.location.protocol;
+        const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+        
+        // If on cloud (not localhost/127.0.0.1), use the current host but on port 8000
+        if (host !== 'localhost' && host !== '127.0.0.1') {
+            setApiBase(`${protocol}//${host}:8000`);
+            setWsBase(`${wsProtocol}//${host}:8000`);
+        }
+    }
+  }, []);
 
   // Poll Logs & Status
   useEffect(() => {
     const fetchSystem = async () => {
         try {
-            const sRes = await fetch('http://localhost:8000/api/status');
-            const lRes = await fetch('http://localhost:8000/api/logs?lines=20');
+            const sRes = await fetch(`${apiBase}/api/status`);
+            const lRes = await fetch(`${apiBase}/api/logs?lines=20`);
             setStatus(await sRes.json());
             setLogs((await lRes.json()).logs);
         } catch(e) { console.error(e); }
@@ -30,7 +50,7 @@ export default function AegisDashboard() {
     fetchSystem();
     const interval = setInterval(fetchSystem, 2000); // 2s polling
     return () => clearInterval(interval);
-  }, []);
+  }, [apiBase]);
 
   // Poll Market Data & Prediction for Active Asset
   useEffect(() => {
@@ -72,14 +92,14 @@ export default function AegisDashboard() {
     const fetchMarket = async () => {
         try {
             // CRITICAL FIX: Load 500 candles from history API (prevents Giant Candle bug)
-            const mRes = await fetch(`http://localhost:8000/api/history/${activeAsset}?interval=${timeframe}&limit=500`);
+            const mRes = await fetch(`${apiBase}/api/history/${activeAsset}?interval=${timeframe}&limit=500`);
             if (mRes.ok) {
                 const mJson = await mRes.json();
                 setMarketData(mJson.data || []);
             }
 
             // Prediction (Always uses default for accuracy)
-            const pRes = await fetch(`http://localhost:8000/api/predict/${activeAsset}`);
+            const pRes = await fetch(`${apiBase}/api/predict/${activeAsset}`);
             if (pRes.ok) {
                 const newPrediction = await pRes.json();
                 
@@ -102,7 +122,7 @@ export default function AegisDashboard() {
     // News
     const fetchNews = async () => {
         try {
-            const nRes = await fetch('http://localhost:8000/api/news');
+            const nRes = await fetch(`${apiBase}/api/news`);
             if(nRes.ok) setNews((await nRes.json()).headlines);
         } catch(e) {}
     };
@@ -115,7 +135,7 @@ export default function AegisDashboard() {
     const newsInterval = setInterval(fetchNews, 30000);     // 30s News Refresh (Requested)
     
     // WEBSOCKET: 0.5s Real-Time Updates
-    const ws = new WebSocket('ws://localhost:8000/ws');
+    const ws = new WebSocket(`${wsBase}/ws`);
     ws.onmessage = (event) => {
         try {
             const msg = JSON.parse(event.data);
@@ -133,7 +153,7 @@ export default function AegisDashboard() {
         clearInterval(newsInterval);
         ws.close();
     };
-  }, [activeAsset, timeframe]); // Dependency added
+  }, [apiBase, wsBase, activeAsset, timeframe]); // Dependency added
 
   const assets = ["BTC", "ETH", "SOL", "BNB", "PAXG"];
 
@@ -222,6 +242,22 @@ export default function AegisDashboard() {
                     </div>
                     
                     <div className="flex flex-col items-end gap-2">
+                         {/* VIEW MODE TOGGLE */}
+                         <div className="flex bg-black/50 rounded-lg p-1 border border-emerald-500/10 mb-2">
+                            <button
+                                onClick={() => setViewMode('sentient')}
+                                className={`px-3 py-1 text-[10px] font-bold rounded ${viewMode === 'sentient' ? 'bg-emerald-500 text-black' : 'text-neutral-500'}`}
+                            >
+                                SENTIENT VIEW
+                            </button>
+                            <button
+                                onClick={() => setViewMode('pro')}
+                                className={`px-3 py-1 text-[10px] font-bold rounded ${viewMode === 'pro' ? 'bg-emerald-500 text-black' : 'text-neutral-500'}`}
+                            >
+                                PRO TERMINAL
+                            </button>
+                         </div>
+
                          {/* TIMEFRAME SELECTOR */}
                          <div className="flex bg-black/50 rounded-lg p-1 border border-neutral-800">
                             {["5m", "15m", "30m", "1h", "1d"].map(tf => (
@@ -244,9 +280,13 @@ export default function AegisDashboard() {
                     </div>
                 </div>
 
-                {/* CANDLESTICK CHART */}
-                <div className="h-[350px] w-full relative z-10">
-                    <CandlestickChart data={marketData} />
+                {/* CHART AREA - EXPANDED TO MISSION CONTROL SCALE */}
+                <div className="h-[600px] w-full relative z-10 transition-all duration-500">
+                    {viewMode === 'sentient' ? (
+                        <CandlestickChart data={marketData} />
+                    ) : (
+                        <TradingViewChart symbol={activeAsset} interval={timeframe} />
+                    )}
                 </div>
             </div>
 
@@ -368,7 +408,7 @@ export default function AegisDashboard() {
                         btn.textContent = "🔄 RECALIBRATING...";
                         btn.disabled = true;
                         
-                        const res = await fetch("http://localhost:8000/api/recalibrate", { method: "POST" });
+                        const res = await fetch(`${apiBase}/api/recalibrate`, { method: "POST" });
                         const data = await res.json();
                         
                         if (data.status === "success") {

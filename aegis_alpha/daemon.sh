@@ -45,21 +45,32 @@ is_running() {
 # Start the bot
 start() {
     print_banner
+    echo "🦅 IGNITION SEQUENCE..."
     
     if is_running; then
         echo -e "${YELLOW}⚠️  AEGIS is already running (PID: $(cat $PID_FILE))${NC}"
         return 1
     fi
     
+    # 1. SECURITY: Load Keys from Vault (Git-ignored)
+    if [ -f "$AEGIS_HOME/.env" ]; then
+        echo -e "   Loading environment from .env..."
+        set -a; source "$AEGIS_HOME/.env"; set +a
+    elif [ -f "$AEGIS_HOME/../.env" ]; then
+        echo -e "   Loading environment from ../.env..."
+        set -a; source "$AEGIS_HOME/../.env"; set +a
+    else
+        echo -e "${YELLOW}⚠️  WARNING: .env Vault not found.${NC}"
+    fi
+
     echo -e "${BLUE}🚀 Starting AEGIS Trading Bot...${NC}"
     
-    # Check model exists
-    if [ ! -f "$AEGIS_HOME/models/aegis_lstm.pth" ]; then
-        echo -e "${YELLOW}⚠️  Warning: LSTM model not found at $AEGIS_HOME/models/aegis_lstm.pth${NC}"
+    # 2. RUNTIME: Auto-detect Python
+    if [ -d "$AEGIS_HOME/venv" ]; then
+        PYTHON_EXEC="$AEGIS_HOME/venv/bin/python3"
+    else
+        PYTHON_EXEC="python3"
     fi
-    
-    # Use specific python path that has dependencies
-    PYTHON_EXEC="/Applications/anaconda3/bin/python3"
     
     # Start API Server
     echo -e "   Starting API Server..."
@@ -75,8 +86,14 @@ start() {
     # Start Dashboard
     echo -e "   Starting Dashboard (Terminal I)..."
     cd "$AEGIS_HOME/aegis-ui"
-    nohup npm run dev >> "$AEGIS_HOME/logs/nextjs.log" 2>&1 &
-    DASH_PID=$!
+    # Detect if npm is present (Server might use pm2 or direct node)
+    if command -v npm &> /dev/null; then
+        nohup npm run dev >> "$AEGIS_HOME/logs/nextjs.log" 2>&1 &
+        DASH_PID=$!
+    else
+        echo -e "${YELLOW}⚠️  npm not found. Dashboard not started.${NC}"
+        DASH_PID=0
+    fi
     cd "$AEGIS_HOME"
     
     # Save PIDs (Executor is main PID)
@@ -87,8 +104,7 @@ start() {
     sleep 2
     
     if is_running; then
-        echo -e "${GREEN}✅ AEGIS started successfully${NC}"
-        echo -e "   Executor PID: $EXEC_PID"
+        echo -e "${GREEN}✅ AEGIS LIVE. PID: $(cat $PID_FILE)${NC}"
         echo -e "   API PID:      $API_PID"
         echo -e "   Logs: $LOG_FILE"
     else
@@ -155,6 +171,27 @@ stop() {
 restart() {
     stop
     sleep 2
+    start
+}
+
+# Retrain (Step 3: The Auto-Mechanic)
+retrain() {
+    print_banner
+    echo -e "${BLUE}⚙️  RECALIBRATING NEURAL CORES...${NC}"
+    
+    # 1. Stop current operations
+    stop
+    
+    # 2. Run training script
+    # We use the absolute path established in start()
+    PYTHON_EXEC="/Users/anmol/anaconda3/bin/python3"
+    if [ ! -f "$PYTHON_EXEC" ]; then PYTHON_EXEC="python3"; fi
+    
+    echo -e "   Running src/multi_asset_trainer.py..."
+    $PYTHON_EXEC src/multi_asset_trainer.py
+    
+    # 3. Restart
+    echo -e "${GREEN}✅ Recalibration Complete.${NC}"
     start
 }
 
@@ -298,6 +335,7 @@ usage() {
     echo "   start      Start the trading bot"
     echo "   stop       Stop the trading bot"
     echo "   restart    Restart the trading bot"
+    echo "   retrain    Recalibrate models and restart"
     echo "   status     Check if bot is running"
     echo "   logs       View live logs"
     echo "   errors     View error logs"
@@ -317,6 +355,9 @@ case "$1" in
         ;;
     restart)
         restart
+        ;;
+    retrain)
+        retrain
         ;;
     status)
         status

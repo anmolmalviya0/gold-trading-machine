@@ -30,7 +30,7 @@ export default function CandlestickChart({ data }: CandlestickChartProps) {
         // Create new chart
         const chart = createChart(chartContainerRef.current, {
             width: chartContainerRef.current.clientWidth,
-            height: 350,
+            height: 600,
             layout: {
                 background: { type: ColorType.Solid, color: '#0A0A0A' }, // Solid dark BG to stop flickering
                 textColor: '#525252',
@@ -148,8 +148,13 @@ export default function CandlestickChart({ data }: CandlestickChartProps) {
             
             if (uniqueData.length > 0) {
                 seriesRef.current.setData(uniqueData);
-                // "fitContent" ensures the chart scales to show non-gappy data nicely
-                chartRef.current?.timeScale().fitContent(); 
+                
+                // Only fit once on initial data load, not on every update
+                // This prevents the "Auto-Zoom-Out" bug requested by the user.
+                const isInitialLoad = !chartRef.current?.timeScale().getVisibleRange();
+                if (isInitialLoad) {
+                    chartRef.current?.timeScale().fitContent();
+                }
             }
         } catch (e) {
             console.error('Chart data error:', e);
@@ -159,8 +164,8 @@ export default function CandlestickChart({ data }: CandlestickChartProps) {
     return (
         <div 
             ref={chartContainerRef} 
-            className="w-full h-[350px] relative"
-            style={{ minHeight: '350px' }}
+            className="w-full h-[600px] relative"
+            style={{ minHeight: '600px' }}
         />
     );
 }
