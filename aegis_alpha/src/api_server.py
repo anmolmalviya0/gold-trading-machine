@@ -19,6 +19,7 @@ import pandas as pd
 import numpy as np
 import joblib
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import List, Dict
 from notifier import sentinel
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -26,6 +27,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Add parent dir to path for internal imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Config
+BASE_DIR = Path(__file__).resolve().parent.parent
+MODELS_DIR = BASE_DIR / "models"
+DATA_DIR = BASE_DIR / "market_data"
+LOG_DIR = BASE_DIR / "logs"
+CALENDAR_FILE = DATA_DIR / "economic_calendar.json"
 
 try:
     from src.lgbm_adapter import LightGBMPredictor
@@ -214,19 +222,36 @@ async def get_prediction(symbol: str, interval: str = "15m"):
     """Run live inference using the Switchblade Model"""
     try:
         # 1. Resolve Model
-        model_path = os.path.join(MODELS_DIR, f"{symbol}_lgbm.pkl")
+        # Map symbol "BTC" -> "BTCUSDT" for filename
+        filesym = f"{symbol}USDT"
+        model_path = os.path.join(MODELS_DIR, f"{filesym}_{interval}_lgbm.pkl")
+        
+        if not os.path.exists(model_path):
+            # Fallback for old naming or slightly different format
+            model_path = os.path.join(MODELS_DIR, f"{symbol}_{interval}_lgbm.pkl")
+            
         if symbol not in MODEL_CACHE:
             if os.path.exists(model_path):
                 MODEL_CACHE[symbol] = joblib.load(model_path)
             else:
-                return {"status": "error", "message": "Model not found"}
+                return {"status": "error", "message": f"Model not found: {model_path}"}
         
         # 2. Fetch Fresh Data (Need 100 candles for SMA_50)
         yf_map = {"BTC": "BTC-USD", "ETH": "ETH-USD", "SOL": "SOL-USD", "BNB": "BNB-USD", "PAXG": "PAXG-USD"}
         ticker_sym = yf_map.get(symbol, f"{symbol}-USD")
         
-        # Fetch slightly more than needed to ensure indicators calculate
-        df = await asyncio.to_thread(yf.download, ticker_sym, period="2d", interval=interval, progress=False)
+        cache_key = f"predict_df_{symbol}_{interval}"
+        if cache_key in MODEL_CACHE:
+            cached_df, timestamp = MODEL_CACHE[cache_key]
+            if datetime.now() - timestamp < timedelta(seconds=60):
+                df = cached_df
+            else:
+                df = await asyncio.to_thread(yf.download, ticker_sym, period="2d", interval=interval, progress=False)
+                MODEL_CACHE[cache_key] = (df, datetime.now())
+        else:
+            df = await asyncio.to_thread(yf.download, ticker_sym, period="2d", interval=interval, progress=False)
+            MODEL_CACHE[cache_key] = (df, datetime.now())
+
         if df is None or df.empty:
             return {"status": "error", "message": "Failed to fetch data for prediction"}
         

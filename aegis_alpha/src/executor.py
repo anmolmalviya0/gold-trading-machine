@@ -420,15 +420,22 @@ class SentinelExecutor:
         logger.info(f"🚀 TERMINAL Executor (PID {os.getpid()}) Started. Mode: {'PAPER' if self.paper_mode else 'LIVE'}")
         self.running = True
         
+        last_market_scan = 0
+        scan_interval = 30 # Scan for new signals every 30s
+        
         while self.running:
             try:
-                # 1. Position Sentinel: Monitor SL/TP for open trades
+                # 1. Position Sentinel: Monitor SL/TP for open trades (High Frequency)
                 self.monitor_positions()
 
-                # 2. Market Pulse: Fetch & Switchblade Logic (Scan Market)
-                self.scan_market()
+                # 2. Market Pulse: Fetch & Switchblade Logic (Lower Frequency)
+                current_time = time.time()
+                if current_time - last_market_scan >= scan_interval:
+                    self.scan_market()
+                    last_market_scan = current_time
                 
-                time.sleep(60)
+                # Lightning Speed Monitoring
+                time.sleep(2)
                 
             except KeyboardInterrupt:
                 self.running = False

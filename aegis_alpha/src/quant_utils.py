@@ -75,16 +75,50 @@ def prepare_features(df: pd.DataFrame) -> np.ndarray:
         tr = pd.DataFrame({'hl': df['high'] - df['low'], 'hc': abs(df['high'] - df['close'].shift(1)), 'lc': abs(df['low'] - df['close'].shift(1))}).max(axis=1)
         df['atr_ratio'] = tr.rolling(14).mean() / df['close']
         df['volume_ratio'] = df['volume'] / df['volume'].rolling(20).mean()
+
+        # --- HYPER-OPTIMIZATION: CONTEXT AWARENESS (Matching matrix_trainer.py) ---
+        # 1. ADX (Trend Strength)
+        high_low = df['high'] - df['low']
+        high_close = np.abs(df['high'] - df['close'].shift())
+        low_close = np.abs(df['low'] - df['close'].shift())
+        ranges = pd.concat([high_low, high_close, low_close], axis=1)
+        true_range = np.max(ranges, axis=1)
+        
+        deltas_up = df['high'].diff()
+        deltas_down = -df['low'].diff()
+        
+        alpha = 1/14
+        
+        # Use numpy where for safe vectorization
+        plus_dm = np.where((deltas_up > deltas_down) & (deltas_up > 0), deltas_up, 0)
+        minus_dm = np.where((deltas_down > deltas_up) & (deltas_down > 0), deltas_down, 0)
+        
+        # Smooth with EMA
+        tr_smooth = pd.Series(true_range).ewm(alpha=alpha, adjust=False).mean()
+        pdm_smooth = pd.Series(plus_dm).ewm(alpha=alpha, adjust=False).mean()
+        mdm_smooth = pd.Series(minus_dm).ewm(alpha=alpha, adjust=False).mean()
+        
+        plus_di = 100 * (pdm_smooth / tr_smooth)
+        minus_di = 100 * (mdm_smooth / tr_smooth)
+        dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di)
+        df['adx'] = dx.ewm(alpha=alpha, adjust=False).mean()
+        
+        # 2. Volatility Regime (Z-Score)
+        rolling_vol = df['close'].pct_change().rolling(20).std()
+        df['vol_z_score'] = (rolling_vol - rolling_vol.rolling(50).mean()) / rolling_vol.rolling(50).std()
         
         cols = [
             'returns', 'log_returns', 'high_low_ratio', 'close_open_ratio',
             'sma_ratio_5', 'sma_ratio_10', 'sma_ratio_20', 'sma_ratio_50',
-            'rsi_norm', 'macd_hist', 'bb_position', 'atr_ratio', 'volume_ratio'
+            'rsi_norm', 'macd_hist', 'bb_position', 'atr_ratio', 'volume_ratio',
+            'adx', 'vol_z_score'
         ]
         
         # Take the last row and handle NaNs from rolling starts
-        features = df[cols].fillna(0).iloc[-1].values.reshape(1, -1)
+        # If last row is NaN, we can't trade. But we must return valid shape.
+        final_row = df[cols].iloc[-1].fillna(0)
+        features = final_row.values.reshape(1, -1)
         return features
     except Exception as e:
         print(f"❌ Feature Engineering Failed: {e}")
-        return np.zeros((1, 13))
+        return np.zeros((1, 15))

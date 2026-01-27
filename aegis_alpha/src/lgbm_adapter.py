@@ -50,12 +50,13 @@ class LightGBMPredictor:
         # Reshape for single prediction
         features_2d = features.reshape(1, -1)
         
-        # Ensure we have correct number of features (13)
-        expected_feats = 13
+        # Ensure we have correct number of features (15)
+        expected_feats = 15
         feature_names = [
             'returns', 'log_returns', 'high_low_ratio', 'close_open_ratio',
             'sma_ratio_5', 'sma_ratio_10', 'sma_ratio_20', 'sma_ratio_50',
-            'rsi_norm', 'macd_hist', 'bb_position', 'atr_ratio', 'volume_ratio'
+            'rsi_norm', 'macd_hist', 'bb_position', 'atr_ratio', 'volume_ratio',
+            'adx', 'vol_z_score'
         ]
         
         if features_2d.shape[1] > expected_feats:

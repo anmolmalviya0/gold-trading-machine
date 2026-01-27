@@ -273,7 +273,7 @@ export default function TerminalDashboard() {
 
                          {/* TIMEFRAME SELECTOR */}
                          <div className="flex bg-black/50 rounded-lg p-1 border border-neutral-800">
-                            {["5m", "15m", "30m", "1h", "1d"].map(tf => (
+                            {["1m", "5m", "15m", "30m", "1h", "1d"].map(tf => (
                                 <button
                                     key={tf}
                                     onClick={() => setTimeframe(tf)}
@@ -408,6 +408,7 @@ export default function TerminalDashboard() {
                     <Zap className="w-5 h-5 text-yellow-500" /> SIGNAL MATRIX
                  </h3>
                  <div className="space-y-3">
+                    <SignalRow tf="1m" label="HFT PULSE" confidence={(prediction?.confidence || 0) * 1.05} />
                     <SignalRow tf="5m" label="SCALPING" confidence={prediction?.confidence || 0} />
                     <SignalRow tf="15m" label="DAY TRADE" confidence={(prediction?.confidence || 0) * 1.1} />
                     <SignalRow tf="30m" label="SWING" confidence={(prediction?.confidence || 0) * 0.95} />

@@ -68,6 +68,8 @@ start() {
     # 2. RUNTIME: Auto-detect Python
     if [ -d "$AEGIS_HOME/venv" ]; then
         PYTHON_EXEC="$AEGIS_HOME/venv/bin/python3"
+    elif [ -d "$AEGIS_HOME/../.venv" ]; then
+        PYTHON_EXEC="$AEGIS_HOME/../.venv/bin/python3"
     else
         PYTHON_EXEC="python3"
     fi

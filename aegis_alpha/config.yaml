@@ -11,6 +11,7 @@ ui:
 # ACTIVE TIMEFRAMES
 # The system will analyze these timeframes in parallel
 active_timeframes:
+  - "1m"   # HFT (Highest Precision, Zero Latency)
   - "5m"   # SCALPING (High Noise, High Opportunity)
   - "15m"  # DEFAULT (Balanced - Primary Signal Source)
   - "30m"  # CONFIRMATION (Medium-Term Trend)
@@ -40,10 +41,10 @@ trading:
   # Specific model paths per asset (SWITCHBLADE PROTOCOL: LightGBM)
   model_type: "lgbm"  # Model type selector: "lstm" or "lgbm"
   model_paths:
-    "BTC/USDT": "models/BTC_lgbm.pkl"
-    "ETH/USDT": "models/ETH_lgbm.pkl"
-    "SOL/USDT": "models/SOL_lgbm.pkl"
-    "PAXG/USDT": "models/PAXG_lgbm.pkl"
+    "BTC/USDT": "models/BTCUSDT_15m_lgbm.pkl"
+    "ETH/USDT": "models/ETHUSDT_15m_lgbm.pkl"
+    "SOL/USDT": "models/SOLUSDT_15m_lgbm.pkl"
+    "PAXG/USDT": "models/PAXGUSDT_15m_lgbm.pkl"
 
 # CONFIDENCE THRESHOLDS (SYMMETRIC - TOTAL WAR MODE)
 confidence:
