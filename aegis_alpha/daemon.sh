@@ -102,11 +102,17 @@ start() {
     nohup $PYTHON_EXEC src/intel_scout.py >> "$AEGIS_HOME/logs/intel_scout.log" 2>&1 &
     INTEL_PID=$!
     
+    # Start Hybrid Sync Automation (4-Hour Loop)
+    echo -e "   Starting Hybrid Sync Automation (V37)..."
+    nohup bash -c "while true; do $PYTHON_EXEC src/hybrid_sync.py >> '$AEGIS_HOME/logs/hybrid_sync.log' 2>&1; sleep 14400; done" >> /dev/null 2>&1 &
+    SYNC_PID=$!
+    
     # Save PIDs
     echo $EXEC_PID > "$PID_FILE"
     echo $API_PID > "$AEGIS_HOME/api.pid"
     echo $DASH_PID > "$AEGIS_HOME/dashboard.pid"
     echo $INTEL_PID > "$AEGIS_HOME/intel_scout.pid"
+    echo $SYNC_PID > "$AEGIS_HOME/hybrid_sync.pid"
     
     sleep 2
     
@@ -149,6 +155,13 @@ stop() {
         DASH_PID=$(cat "$AEGIS_HOME/dashboard.pid")
         kill "$DASH_PID" 2>/dev/null
         rm -f "$AEGIS_HOME/dashboard.pid"
+    fi
+    
+    # Kill Hybrid Sync if exists
+    if [ -f "$AEGIS_HOME/hybrid_sync.pid" ]; then
+        SYNC_PID=$(cat "$AEGIS_HOME/hybrid_sync.pid")
+        kill "$SYNC_PID" 2>/dev/null
+        rm -f "$AEGIS_HOME/hybrid_sync.pid"
     fi
     
     # Force kill any rogue dashboard processes

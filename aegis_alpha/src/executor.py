@@ -35,7 +35,7 @@ try:
     from lstm_model import SignalPredictor as LSTMPredictor
     from lgbm_adapter import LightGBMPredictor
     from persistence import Database
-    from quant_utils import calc_position_size, prepare_features
+    from quant_utils import calc_position_size, prepare_features, calculate_kelly_fraction, adaptive_threshold_logic
     from notifier import sentinel
 except ImportError as e:
     logger.error(f"Failed to import components: {e}")
@@ -64,15 +64,17 @@ class SentinelExecutor:
         self.db = Database()
         
         # 2. Config & State
-        self.active_pairs = CONFIG.get('trading', {}).get('active_pairs', [])
+        self.active_pairs = CONFIG.get('system', {}).get('active_pairs', ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'PAXG/USDT'])
+        self.active_timeframes = CONFIG.get('active_timeframes', ['1m', '5m', '15m', '30m', '1h', '1d'])
         self.paper_mode = CONFIG.get('trading', {}).get('paper_trading_mode', True)
         self.running = False
         self.signals_generated = 0
         self.errors = 0
         
-        # 3. Model Registry { 'BTC/USDT': PredictorObj }
+        # 3. Model Registry { 'BTC/USDT_15m': PredictorObj }
         self.models = {}
         self.last_signals = {} # Anti-Spam Cache
+        self.market_context = {} # { 'BTC/USDT_15m': trend_bias }
         
         # 4. Exchange Connection (Binance)
         self.exchange = None
@@ -111,34 +113,27 @@ class SentinelExecutor:
         model_paths = CONFIG.get('trading', {}).get('model_paths', {})
         
         for pair in self.active_pairs:
-            # Get path for this pair
-            path = model_paths.get(pair)
-            
-            if not path:
-                logger.warning(f"⚠️ No model path config for {pair}. Using fallback.")
-                path = "models/terminal_lstm.pth" # Fallback
-            
-            # Resolve absolute path
-            abs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), path)
-            
-            if os.path.exists(abs_path):
-                try:
-                    # Determine model type by extension
-                    if abs_path.endswith('.pkl'):
+            for tf in self.active_timeframes:
+                # Key format: BTC/USDT_15m
+                node_key = f"{pair}_{tf}"
+                
+                # Get path for this node
+                path = model_paths.get(pair) # Old config style
+                # New config style check
+                clean_pair = pair.replace('/', '')
+                path = f"models/{clean_pair}_{tf}_lgbm.pkl"
+                
+                # Resolve absolute path
+                abs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), path)
+                
+                if os.path.exists(abs_path):
+                    try:
                         predictor = LightGBMPredictor(abs_path)
-                    else:
-                        predictor = LSTMPredictor(abs_path)
-                        
-                    self.models[pair] = predictor
-                    
-                    # Update DB performance tracking
-                    self.db.update_model_performance(pair, path)
-                    logger.info(f"✅ Loaded Core: {pair} -> {path}")
-                    
-                except Exception as e:
-                    logger.error(f"❌ Failed to load {pair}: {e}")
-            else:
-                logger.warning(f"❌ Model file missing: {abs_path}")
+                        self.models[node_key] = predictor
+                        self.db.update_model_performance(node_key, path)
+                        logger.info(f"✅ Loaded Core: {node_key} -> {path}")
+                    except Exception as e:
+                        logger.error(f"❌ Failed to load {node_key}: {e}")
                 
         logger.info(f"🐉 Sentinel Online: {len(self.models)} active cores")
 
@@ -170,125 +165,101 @@ class SentinelExecutor:
 
     def scan_market(self):
         """
-        Main loop: Iterate through all pairs and generate signals
+        Main loop: Iterate through all pairs and timeframes to generate signals
         """
         for pair in self.active_pairs:
-            try:
-                # 1. Get Model
-                model = self.models.get(pair)
-                if not model:
-                    continue
-                
-                # 2. Fetch Data (100 candles for features)
-                # ... [Fetching logic remains same]
-                # If exchange is connected, use it. Else simulation mode.
-                df = None
-                if self.exchange:
-                    try:
-                        ohlcv = self.exchange.fetch_ohlcv(pair, '15m', limit=100)
-                        # Convert to DataFrame
-                        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-                        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-                        df.set_index('timestamp', inplace=True)
-                    except Exception as e:
-                        logger.error(f"Failed to fetch data for {pair}: {e}")
-                        continue
-                else:
-                    # Simulation Mode: We need to fetch from API Server or mock
-                    # Actually, yfinance can serve as fallback in executor too
-                    # 2. Fetch Fresh Data (Switchblade Protocol)
-                    try:
-                        import yfinance as yf
-                        yf_map = {"BTC/USDT": "BTC-USD", "ETH/USDT": "ETH-USD", "SOL/USDT": "SOL-USD"}
-                        ticker = yf_map.get(pair, pair.replace('/', '-'))
-                        # Note: asyncio.to_thread is for async contexts. For synchronous, call directly.
-                        df = yf.download(ticker, period="2d", interval="15m", progress=False)
-                        
-                        if df is None or df.empty:
-                            logger.warning(f"No data for {pair}")
-                            continue
-                            
-                        # 🐉 AGGRESSIVE NORMALIZATION (NASA-Grade)
-                        if hasattr(df.columns, 'levels') and len(df.columns.levels) > 1:
-                            df.columns = df.columns.get_level_values(0)
-                        df.columns = [str(c).lower().strip() for c in df.columns]
-                        
-                    except Exception as e:
-                        logger.error(f"Fetch failed for {pair}: {e}")
-                        continue
-
-                # 3. Features & Prediction (Sovereign Engine)
-                features = prepare_features(df)
-                
-                # 4. Run Inference (NASA-Grade Threshold Sync)
-                threshold = CONFIG.get('confidence', {}).get('buy_threshold', 0.65)
-                result = model.predict(features, threshold=threshold)
-                
-                # Use scalar extraction to avoid index ghosts
-                price_now = float(df['close'].values[-1])
-                
-                confidence = result.get('confidence', 0)
-                signal = result.get('signal', 'HOLD')
-                reason = result.get('reason', 'N/A')
-                
-                # 🐉 ANTI-SPAM: Only log if signal changed
-                last_sig = self.last_signals.get(pair)
-                if signal == last_sig and signal == 'HOLD':
-                    # Silent skip for redundant HOLDs
-                    continue
-                
-                logger.info(f"🔍 Scan {pair}: {signal} ({confidence:.1%}) | Reason: {reason} | Price: {price_now}")
-                
-                # 5. SOVEREIGN INTELLIGENCE FUSION (Phase 4)
-                intel_data = {"sentiment_score": 0.0, "macro_bias": "NEUTRAL"}
+            # First, update macro context for this pair (15m/1h trend)
+            self._update_market_context(pair)
+            
+            for tf in self.active_timeframes:
+                node_key = f"{pair}_{tf}"
                 try:
-                    import requests
-                    res = requests.get("http://127.0.0.1:8000/api/intel", timeout=1)
-                    if res.status_code == 200:
-                        intel_data = res.json()
-                except:
-                    pass
-                
-                sentiment_score = intel_data.get("sentiment_score", 0.0)
-                
-                # Apply Sentiment Shield (If Gemini is bearish, increase Buy threshold)
-                current_buy_threshold = threshold
-                if sentiment_score < -0.3:
-                    current_buy_threshold += 0.10 # Harder to buy in bad news
-                    logger.info(f"🛡️ Sentiment Shield: Hardening Buy Threshold to {current_buy_threshold:.2f} (Bearish News)")
-                
-                # Update Cache
-                self.last_signals[pair] = signal
-                
-                # PERSISTENCE: Save result
-                result['price'] = price_now
-                self.process_signal(pair, result)
-                
-                # 6. Execute with Volatility Shield
-                # Re-check signal against Sentiment-Adjusted threshold
-                if signal == 'BUY' and confidence < current_buy_threshold:
-                    logger.warning(f"🚫 Trade VETOED by Sovereign Intelligence: {confidence:.2f} < {current_buy_threshold:.2f}")
-                    continue
-
-                if signal != 'HOLD' and result.get('approved', False):
-                    # APPLY VOLATILITY SHIELD (Step 1)
-                    if not self.is_market_safe(pair, df):
-                        logger.warning(f"🛡️ SIGNAL BLOCKED BY SHIELD: {pair} {signal}")
+                    # 1. Get Model
+                    model = self.models.get(node_key)
+                    if not model:
                         continue
-
-                    logger.info(f"🚨 ACTION REQUIRED: {signal} {pair} @ {df['close'].iloc[-1]}")
                     
-                    if self.exchange:
-                        # REAL EXECUTION (If keys present)
-                        # side = 'buy' if signal == 'BUY' else 'sell'
-                        # order = self.exchange.create_market_order(pair, side, amount)
-                        # logger.info(f"✅ ORDER EXECUTED: {order}")
-                        pass
-                    else:
-                        logger.warning(f"⚠️ SIMULATION: Would have {signal} {pair} (No Keys)") 
-                
-            except Exception as e:
-                logger.error(f"Error scanning {pair}: {e}")
+                    # 2. Fetch Data
+                    df = self._fetch_ohlcv(pair, tf)
+                    if df is None or df.empty:
+                        continue
+                    
+                    # 3. Features & Prediction
+                    features = prepare_features(df)
+                    vol_z = features['vol_z_score'].iloc[-1] if 'vol_z_score' in features.columns else 0
+                    
+                    # 🐉 ADAPTIVE THRESHOLD ENGINE (Step 2)
+                    base_threshold = CONFIG.get('confidence', {}).get('buy_threshold', 0.65)
+                    threshold = adaptive_threshold_logic(base_threshold, vol_z)
+                    
+                    result = model.predict(features, threshold=threshold)
+                    price_now = float(df['close'].values[-1])
+                    confidence = result.get('confidence', 0)
+                    signal = result.get('signal', 'HOLD')
+                    
+                    # 🐉 TRIPLE-BARRIER GATEKEEPER (Step 3)
+                    # For HFT (1m/5m), we must align with 15m trend
+                    if tf in ['1m', '5m'] and signal != 'HOLD':
+                        macro_bias = self.market_context.get(f"{pair}_15m", "NEUTRAL")
+                        if (signal == 'BUY' and macro_bias == 'BEARISH') or (signal == 'SELL' and macro_bias == 'BULLISH'):
+                            logger.info(f"🛡️ GATEKEEPER VETO: {node_key} {signal} blocked by 15m {macro_bias} trend.")
+                            continue
+                    
+                    # Anti-Spam
+                    if signal == self.last_signals.get(node_key) and signal == 'HOLD':
+                        continue
+                    
+                    logger.info(f"🔍 Scan {node_key}: {signal} ({confidence:.1%}) | Price: {price_now}")
+                    self.last_signals[node_key] = signal
+                    
+                    # Process
+                    result['price'] = price_now
+                    result['timeframe'] = tf
+                    if signal != 'HOLD' and result.get('approved', False):
+                        if self.is_market_safe(pair, df):
+                            self.process_signal(pair, result)
+                            
+                except Exception as e:
+                    logger.error(f"Error scanning {node_key}: {e}")
+
+    def _update_market_context(self, pair: str):
+        """Build macro bias for Gatekeeper logic"""
+        try:
+            # Check 15m trend
+            df = self._fetch_ohlcv(pair, '15m', limit=50)
+            if df is not None and not df.empty:
+                sma20 = df['close'].rolling(20).mean().iloc[-1]
+                price = df['close'].iloc[-1]
+                bias = "BULLISH" if price > sma20 else "BEARISH"
+                self.market_context[f"{pair}_15m"] = bias
+        except:
+            self.market_context[f"{pair}_15m"] = "NEUTRAL"
+
+    def _fetch_ohlcv(self, pair: str, tf: str, limit: int = 100) -> Optional[pd.DataFrame]:
+        """Unified fetcher for multiple sources"""
+        try:
+            if self.exchange:
+                ohlcv = self.exchange.fetch_ohlcv(pair, tf, limit=limit)
+                df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+                df.set_index('timestamp', inplace=True)
+                return df
+            else:
+                import yfinance as yf
+                yf_map = {"BTC/USDT": "BTC-USD", "ETH/USDT": "ETH-USD", "SOL/USDT": "SOL-USD"}
+                ticker = yf_map.get(pair, pair.replace('/', '-'))
+                # Map timeframe to yfinance strings
+                yf_tf = tf
+                if tf == '1m': yf_tf = '1m'
+                elif tf == '5m': yf_tf = '5m'
+                df = yf.download(ticker, period="2d" if tf != '1d' else "1mo", interval=yf_tf, progress=False)
+                if df is None or df.empty: return None
+                if hasattr(df.columns, 'levels') and len(df.columns.levels) > 1: df.columns = df.columns.get_level_values(0)
+                df.columns = [str(c).lower().strip() for c in df.columns]
+                return df
+        except Exception as e:
+            logger.error(f"Fetch failed for {pair} {tf}: {e}")
+            return None
 
     def process_signal(self, symbol: str, signal_data: Dict):
         """
@@ -376,39 +347,38 @@ class SentinelExecutor:
 
     def execute_trade(self, symbol: str, side: str, signal_data: Dict):
         """
-        Execute live trade on exchange
+        Execute trade with The Vulcan Protocol (Kelly Criterion)
         """
-        if not self.exchange and not self.paper_mode:
-            logger.error("Cannot execute LIVE: No exchange connection")
-            return
-            
         try:
-            # 1. Calculate Quantity
-            balance = 1000.0 # Placeholder
-            risk_pct = CONFIG.get('risk', {}).get('max_per_trade', 0.01)
-            entry = signal_data.get('entry_price', signal_data.get('price', 0))
+            # 1. Calculate Multiplier using Kelly Criterion
+            # Average win rate for current nodes is ~61%, RR is roughly 1.25 (1.5/1.2)
+            prob = signal_data.get('confidence', 0.65)
+            # 🐉 VULCAN PROTOCOL: Dynamic Kelly weighting
+            kelly_mult = calculate_kelly_fraction(prob, 1.25) # half-kelly default
             
-            # 🐉 NASA-GRADE: Ensure SL exists
+            # Base risk from config
+            base_risk_pct = CONFIG.get('risk', {}).get('max_per_trade', 0.01)
+            dynamic_risk = base_risk_pct * kelly_mult
+            
+            logger.info(f"🌋 VOLCANO IGNITION: {symbol} {side} | Kelly Mult: {kelly_mult:.2f} | Dynamic Risk: {dynamic_risk:.2%}")
+            
+            balance = 1000.0 # Standard unit for simulation
+            entry = signal_data.get('price', 0)
             sl = signal_data.get('stop_loss')
+            tp = signal_data.get('take_profit')
+            
             if not sl:
-                # Fallback to ATR-based SL if not provided
-                atr_dist = signal_data.get('price', 0) * 0.02 # 2% fallback
+                # Fallback ATR-based SL (Institutional standard: -1.2 ATR)
+                atr_dist = entry * 0.015
                 sl = entry - atr_dist if side == 'BUY' else entry + atr_dist
             
-            quantity = calc_position_size(balance, risk_pct, entry, sl)
+            # Use dynamic risk for position sizing
+            quantity = calc_position_size(balance, dynamic_risk, entry, sl)
             
-            if quantity <= 0:
-                logger.warning(f"Quantity 0 for {symbol}. Entry: {entry}, SL: {sl}")
-                return
+            if quantity <= 0: return
 
-            # 2. Log Trade (Always log, even paper)
-            tp = signal_data.get('take_profit')
+            # 2. Log Trade
             trade_id = self.db.log_trade(symbol, side, entry, quantity, sl, tp)
-            
-            if not self.paper_mode and self.exchange:
-                # Real Order logic here
-                pass
-                
             logger.info(f"🚀 {'PAPER ' if self.paper_mode else 'LIVE '}POSITION OPENED: {side} {quantity} {symbol} ID:{trade_id}")
             
         except Exception as e:

@@ -17,6 +17,37 @@ def calc_position_size(balance: float, risk_pct: float, entry: float, stop_loss:
     position_size = risk_amount / stop_distance
     return position_size
 
+def calculate_kelly_fraction(probability: float, win_loss_ratio: float, fraction_limit: float = 0.5) -> float:
+    """
+    Calculate the Kelly Criterion fraction for position sizing.
+    f* = p/a - q/b = p - (1-p)/b
+    p: probability of success (model confidence)
+    b: win/loss ratio (avg win / avg loss)
+    """
+    if win_loss_ratio <= 0 or probability <= 0:
+        return 0.0
+    
+    # Kelly Formula: f = p - (1-p)/b
+    q = 1.0 - probability
+    kelly_f = probability - (q / win_loss_ratio)
+    
+    # Apply a fraction limit (Half-Kelly or Quarter-Kelly) for safety
+    return max(0.0, min(kelly_f * fraction_limit, 1.0))
+
+def adaptive_threshold_logic(base_threshold: float, vol_z_score: float) -> float:
+    """
+    Adjust confidence threshold based on market volatility (Z-Score).
+    Tightens during choppy markets, loosens during breakouts.
+    """
+    # If volatility is extreme (Z > 2), we want higher conviction
+    if vol_z_score > 2.0:
+        return min(0.95, base_threshold + 0.05)
+    # If volatility is low (Z < -1), we want higher conviction (avoid chop)
+    elif vol_z_score < -1.0:
+        return min(0.95, base_threshold + 0.10)
+    
+    return base_threshold
+
 def prepare_features(df: pd.DataFrame) -> np.ndarray:
     """
     THE MASTER ENGINE: Standard TERMINAL Feature Engineering.
